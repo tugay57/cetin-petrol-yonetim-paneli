@@ -686,7 +686,7 @@ function RaporPanel({ shiftHistory, transactions, customers, oilProducts, person
 
     <section className="rounded-3xl bg-slate-900 border border-slate-800 p-5 print:hidden">
       <h3 className="font-black text-xl mb-4">Cari Hareketleri</h3>
-      <div className="space-y-3">{transactions.length === 0 && <Empty text="Henüz cari hareket yok." />}{transactions.map((t) => <div key={t.id} className="rounded-2xl bg-slate-950 border border-slate-800 p-4 flex justify-between gap-3"><div><div className="font-bold">{t.customerName}</div><div className="text-sm text-slate-400">{t.date} • {t.description}</div></div><div className={`font-black ${t.type === "borc" ? "text-red-300" : "text-emerald-300"}`}>{t.type === "borc" ? "+" : "-"}{money(t.amount)}</div></div>)}</div>
+      <div className="space-y-3">{transactions.length === 0 && <Empty text="Henüz cari hareket yok." />}{transactions.map((t) => <div key={t.id} className="rounded-2xl bg-slate-950 border border-slate-800 p-4 flex justify-between gap-3"><div><div className="font-bold">{t.customer_name || t.customerName}</div><div className="text-sm text-slate-400">{t.date} • {t.description}</div></div><div className={`font-black ${t.type === "borc" ? "text-red-300" : "text-emerald-300"}`}>{t.type === "borc" ? "+" : "-"}{money(t.amount)}</div></div>)}</div>
     </section>
   </div>;
 }
