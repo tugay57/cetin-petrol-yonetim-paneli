@@ -82,11 +82,7 @@ export default function CetinPetrolPanel() {
   const [active, setActive] = useState("vardiya");
   const [activeStaffIndex, setActiveStaffIndex] = useState(0);
 
-  const [personnel, setPersonnel] = useState(() => loadSaved("cetin_personnel", [
-    { id: 1, name: "Personel 1", active: true },
-    { id: 2, name: "Personel 2", active: true },
-    { id: 3, name: "Personel 3", active: true },
-  ]));
+ const [personnel, setPersonnel] = useState([]);
   const [newPersonnel, setNewPersonnel] = useState("");
 
 const [oilProducts, setOilProducts] = useState([]);
@@ -137,7 +133,7 @@ useEffect(() => {
 
     if (customersData) setCustomers(customersData);
     setOilProducts(oilProductsData || []);
-    if (personnelData.length) setPersonnel(personnelData);
+    setPersonnel(personnelData || []);
     if (transactionsData) setTransactions(transactionsData);
     if (shiftReportsData) setShiftHistory(shiftReportsData);
 
@@ -588,19 +584,26 @@ function RaporPanel({ shiftHistory, transactions, customers, oilProducts, person
   return <div className="space-y-5">
     <section className="rounded-3xl bg-slate-900 border border-slate-800 p-5 print:bg-white print:text-black print:border-0">
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 print:hidden">
-        <div className="grid md:grid-cols-2 gap-3">
-          <Input label="Başlangıç Tarihi" type="date" value={startDate} onChange={setStartDate} />
-          <Input label="Bitiş Tarihi" type="date" value={endDate} onChange={setEndDate} />
-        </div>
-        <div className="flex gap-3">
-  <button onClick={printReport} className="rounded-2xl bg-blue-700 hover:bg-blue-600 px-5 py-3 font-bold">
-    Yazdır / PDF Al
-  </button>
+  <div className="grid md:grid-cols-2 gap-3">
+    <Input label="Başlangıç Tarihi" type="date" value={startDate} onChange={setStartDate} />
+    <Input label="Bitiş Tarihi" type="date" value={endDate} onChange={setEndDate} />
+  </div>
 
-  <button onClick={downloadBackup} className="rounded-2xl bg-emerald-700 hover:bg-emerald-600 px-5 py-3 font-bold">
-    Yedek İndir
-  </button>
-</div>
+  <div className="flex gap-3">
+    <button
+      onClick={printReport}
+      className="rounded-2xl bg-blue-700 hover:bg-blue-600 px-5 py-3 font-bold"
+    >
+      Yazdır / PDF Al
+    </button>
+
+    <button
+      onClick={downloadBackup}
+      className="rounded-2xl bg-emerald-700 hover:bg-emerald-600 px-5 py-3 font-bold"
+    >
+      Yedek İndir
+    </button>
+  </div>
 </div>
       <div id="printable-report" className="mt-5 print:mt-0">
         <div className="hidden print:block mb-6">
