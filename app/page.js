@@ -6,7 +6,7 @@ import { Lock, LogOut, Users, Wallet, CreditCard, FileText, Plus, Trash2, Search
 
 const DEFAULT_BANKS = ["Ziraat POS", "İş Bankası POS", "Garanti POS", "Yapı Kredi POS", "Akbank POS", "Diğer POS"];
 const ADMIN_USER = "admin";
-const ADMIN_PASS = "cetin123";
+const ADMIN_PASS = "admin";
 
 function money(value) {
   return Number(value || 0).toLocaleString("tr-TR", { style: "currency", currency: "TRY" });
@@ -300,7 +300,7 @@ export default function CetinPetrolPanel() {
   }
 
   if (!loggedIn) {
-    return <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4"><motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl p-8"><div className="flex items-center gap-3 mb-8"><div className="w-12 h-12 rounded-2xl bg-blue-700 flex items-center justify-center shadow-lg shadow-blue-950/60"><Fuel className="w-7 h-7" /></div><div><h1 className="text-2xl font-bold tracking-tight">ÇETİN PETROL</h1><p className="text-slate-400 text-sm">Yönetim Paneli</p></div></div><form onSubmit={handleLogin} className="space-y-4"><Input label="Kullanıcı adı" value={login.username} onChange={(v) => setLogin({ ...login, username: v })} placeholder="admin" /><Input label="Şifre" type="password" value={login.password} onChange={(v) => setLogin({ ...login, password: v })} placeholder="cetin123" />{loginError && <p className="text-red-400 text-sm">{loginError}</p>}<button className="w-full rounded-2xl bg-blue-700 hover:bg-blue-600 transition px-4 py-3 font-semibold flex items-center justify-center gap-2"><Lock className="w-4 h-4" /> Giriş Yap</button></form><p className="mt-6 text-xs text-slate-500">İlk giriş: admin / cetin123</p></motion.div></div>;
+    return <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4"><motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl p-8"><div className="flex items-center gap-3 mb-8"><div className="w-12 h-12 rounded-2xl bg-blue-700 flex items-center justify-center shadow-lg shadow-blue-950/60"><Fuel className="w-7 h-7" /></div><div><h1 className="text-2xl font-bold tracking-tight">ÇETİN PETROL</h1><p className="text-slate-400 text-sm">Yönetim Paneli</p></div></div><form onSubmit={handleLogin} className="space-y-4"><Input label="Kullanıcı adı" value={login.username} onChange={(v) => setLogin({ ...login, username: v })} " /><Input label="Şifre" type="password" value={login.password} onChange={(v) => setLogin({ ...login, password: v })} " />{loginError && <p className="text-red-400 text-sm">{loginError}</p>}<button className="w-full rounded-2xl bg-blue-700 hover:bg-blue-600 transition px-4 py-3 font-semibold flex items-center justify-center gap-2"><Lock className="w-4 h-4" /> Giriş Yap</button></form></motion.div></div>;
   }
 
   const menu = [["vardiya", Wallet, "Vardiya"], ["cari", Users, "Cari Hesaplar"], ["yag", Package, "Yağ Cari"], ["personel", UserPlus, "Personeller"], ["rapor", FileText, "Raporlar"]];
@@ -322,8 +322,11 @@ export default function CetinPetrolPanel() {
 
       {active === "cari" && <CariPanel customerForm={customerForm} setCustomerForm={setCustomerForm} addCustomer={addCustomer} customerSearch={customerSearch} setCustomerSearch={setCustomerSearch} filteredCustomers={filteredCustomers} customerBalances={customerBalances} deleteCustomer={deleteCustomer} transactions={transactions} addManualCustomerMove={addManualCustomerMove} deleteTransaction={deleteTransaction} />}
       {active === "personel" && <PersonelPanel personnel={personnel} newPersonnel={newPersonnel} setNewPersonnel={setNewPersonnel} addPersonnel={addPersonnel} togglePersonnel={togglePersonnel} deletePersonnel={deletePersonnel} />}
-      {active === "rapor" && <RaporPanel shiftHistory={shiftHistory} transactions={transactions} />}
+      {active === "rapor" && <RaporPanel shiftHistory={shiftHistory} transactions={transactions} deleteShiftReport={deleteShiftReport} />}
     </main></div></div>;
+}
+function deleteShiftReport(id) {
+  setShiftHistory((h) => h.filter((x) => x.id !== id));
 }
 
 function OilSaleSection({ account, items, oilProducts, addOilSale, updateOilSale, deleteOilSale, getOilProduct, getOilLineTotal, total }) {
@@ -374,7 +377,7 @@ function PersonelPanel({ personnel, newPersonnel, setNewPersonnel, addPersonnel,
   return <section className="rounded-3xl bg-slate-900 border border-slate-800 p-5 max-w-3xl"><h3 className="font-black text-xl mb-4">Personel Ekle / Sil</h3><div className="flex gap-3 mb-5"><input value={newPersonnel} onChange={(e) => setNewPersonnel(e.target.value)} placeholder="Personel adı" className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 outline-none focus:border-blue-500" /><button onClick={addPersonnel} className="rounded-2xl bg-blue-700 hover:bg-blue-600 px-5 font-bold"><Plus /></button></div><div className="space-y-3">{personnel.map((p) => <div key={p.id} className="rounded-2xl bg-slate-950 border border-slate-800 p-4 flex items-center justify-between"><div><div className="font-bold">{p.name}</div><div className={`text-sm ${p.active ? "text-emerald-300" : "text-slate-500"}`}>{p.active ? "Aktif" : "Pasif"}</div></div><div className="flex gap-2"><button onClick={() => togglePersonnel(p.id)} className="rounded-xl bg-slate-800 px-3 py-2 text-sm">{p.active ? "Pasif Yap" : "Aktif Yap"}</button><button onClick={() => deletePersonnel(p.id)} className="rounded-xl bg-red-950/60 text-red-300 p-3 hover:bg-red-900"><Trash2 className="w-4 h-4" /></button></div></div>)}</div></section>;
 }
 
-function RaporPanel({ shiftHistory, transactions }) {
+function RaporPanel({ shiftHistory, transactions, deleteShiftReport }) {
   const today = new Date().toISOString().slice(0, 10);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState(today);
