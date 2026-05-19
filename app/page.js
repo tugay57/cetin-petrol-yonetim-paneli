@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Lock, LogOut, Users, Wallet, CreditCard, FileText, Plus, Trash2, Search, Fuel, UserPlus, ReceiptText, Package } from "lucide-react";
 
 const DEFAULT_BANKS = ["Ziraat POS", "İş Bankası POS", "Garanti POS", "Yapı Kredi POS", "Akbank POS", "Diğer POS"];
 const ADMIN_USER = "admin";
-const ADMIN_PASS = "admin";
+const ADMIN_PASS = "cetin123";
 
 function money(value) {
   return Number(value || 0).toLocaleString("tr-TR", { style: "currency", currency: "TRY" });
@@ -41,6 +41,21 @@ function emptyStaffAccount(personnelId = "") {
   };
 }
 
+function loadSaved(key, fallback) {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function saveLocal(key, value) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
 export default function CetinPetrolPanel() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [login, setLogin] = useState({ username: "", password: "" });
@@ -48,31 +63,38 @@ export default function CetinPetrolPanel() {
   const [active, setActive] = useState("vardiya");
   const [activeStaffIndex, setActiveStaffIndex] = useState(0);
 
-  const [personnel, setPersonnel] = useState([
+  const [personnel, setPersonnel] = useState(() => loadSaved("cetin_personnel", [
     { id: 1, name: "Personel 1", active: true },
     { id: 2, name: "Personel 2", active: true },
     { id: 3, name: "Personel 3", active: true },
-  ]);
+  ]));
   const [newPersonnel, setNewPersonnel] = useState("");
 
-  const [oilProducts, setOilProducts] = useState([
+  const [oilProducts, setOilProducts] = useState(() => loadSaved("cetin_oilProducts", [
     { id: 1, name: "Motor Yağı", price: "" },
     { id: 2, name: "AdBlue", price: "" },
-  ]);
+  ]));
   const [oilForm, setOilForm] = useState({ name: "", price: "" });
 
-  const [customers, setCustomers] = useState([]);
+  const [customers, setCustomers] = useState(() => loadSaved("cetin_customers", []));
   const [customerForm, setCustomerForm] = useState({ name: "", phone: "", plate: "", note: "" });
   const [customerSearch, setCustomerSearch] = useState("");
 
-  const [transactions, setTransactions] = useState([]);
-  const [shiftHistory, setShiftHistory] = useState([]);
+  const [transactions, setTransactions] = useState(() => loadSaved("cetin_transactions", []));
+  const [shiftHistory, setShiftHistory] = useState(() => loadSaved("cetin_shiftHistory", []));
 
   const today = new Date().toISOString().slice(0, 10);
-  const [shift, setShift] = useState({
+  const [shift, setShift] = useState(() => loadSaved("cetin_currentShift", {
     date: today,
     staffAccounts: [emptyStaffAccount("1"), emptyStaffAccount("2"), emptyStaffAccount("3")],
-  });
+  }));
+
+  useEffect(() => saveLocal("cetin_personnel", personnel), [personnel]);
+  useEffect(() => saveLocal("cetin_oilProducts", oilProducts), [oilProducts]);
+  useEffect(() => saveLocal("cetin_customers", customers), [customers]);
+  useEffect(() => saveLocal("cetin_transactions", transactions), [transactions]);
+  useEffect(() => saveLocal("cetin_shiftHistory", shiftHistory), [shiftHistory]);
+  useEffect(() => saveLocal("cetin_currentShift", shift), [shift]);
 
   function getOilProduct(productId) {
     return oilProducts.find((p) => String(p.id) === String(productId));
@@ -278,30 +300,7 @@ export default function CetinPetrolPanel() {
   }
 
   if (!loggedIn) {
-    return (
-      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4">
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl p-8">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 rounded-2xl bg-blue-700 flex items-center justify-center shadow-lg shadow-blue-950/60">
-              <Fuel className="w-7 h-7" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">ÇETİN PETROL</h1>
-              <p className="text-slate-400 text-sm">Yönetim Paneli</p>
-            </div>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <Input label="Kullanıcı adı" value={login.username} onChange={(v) => setLogin({ ...login, username: v })} />
-            <Input label="Şifre" type="password" value={login.password} onChange={(v) => setLogin({ ...login, password: v })} />
-            {loginError && <p className="text-red-400 text-sm">{loginError}</p>}
-            <button className="w-full rounded-2xl bg-blue-700 hover:bg-blue-600 transition px-4 py-3 font-semibold flex items-center justify-center gap-2">
-              <Lock className="w-4 h-4" /> Giriş Yap
-            </button>
-          </form>
-        </motion.div>
-      </div>
-    );
+    return <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4"><motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl p-8"><div className="flex items-center gap-3 mb-8"><div className="w-12 h-12 rounded-2xl bg-blue-700 flex items-center justify-center shadow-lg shadow-blue-950/60"><Fuel className="w-7 h-7" /></div><div><h1 className="text-2xl font-bold tracking-tight">ÇETİN PETROL</h1><p className="text-slate-400 text-sm">Yönetim Paneli</p></div></div><form onSubmit={handleLogin} className="space-y-4"><Input label="Kullanıcı adı" value={login.username} onChange={(v) => setLogin({ ...login, username: v })} placeholder="admin" /><Input label="Şifre" type="password" value={login.password} onChange={(v) => setLogin({ ...login, password: v })} placeholder="cetin123" />{loginError && <p className="text-red-400 text-sm">{loginError}</p>}<button className="w-full rounded-2xl bg-blue-700 hover:bg-blue-600 transition px-4 py-3 font-semibold flex items-center justify-center gap-2"><Lock className="w-4 h-4" /> Giriş Yap</button></form><p className="mt-6 text-xs text-slate-500">İlk giriş: admin / cetin123</p></motion.div></div>;
   }
 
   const menu = [["vardiya", Wallet, "Vardiya"], ["cari", Users, "Cari Hesaplar"], ["yag", Package, "Yağ Cari"], ["personel", UserPlus, "Personeller"], ["rapor", FileText, "Raporlar"]];
