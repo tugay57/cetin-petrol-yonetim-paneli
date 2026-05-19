@@ -341,21 +341,6 @@ async function deletePersonnel(id) {
   }));
 }
 
-async function addCustomer() {
-  if (!customerForm.name.trim()) return;
-
-  const saved = await dbAddCustomer({
-    name: customerForm.name.trim(),
-    phone: customerForm.phone,
-    plate: customerForm.plate,
-    note: customerForm.note,
-  });
-
-  if (saved) {
-    setCustomers((c) => [saved, ...c]);
-    setCustomerForm({ name: "", phone: "", plate: "", note: "" });
-  }
-}
 
 async function addCustomer() {
   if (!customerForm.name.trim()) return;
@@ -485,7 +470,16 @@ async function addCustomer() {
 
       {active === "cari" && <CariPanel customerForm={customerForm} setCustomerForm={setCustomerForm} addCustomer={addCustomer} customerSearch={customerSearch} setCustomerSearch={setCustomerSearch} filteredCustomers={filteredCustomers} customerBalances={customerBalances} deleteCustomer={deleteCustomer} transactions={transactions} addManualCustomerMove={addManualCustomerMove} deleteTransaction={deleteTransaction} />}
       {active === "personel" && <PersonelPanel personnel={personnel} newPersonnel={newPersonnel} setNewPersonnel={setNewPersonnel} addPersonnel={addPersonnel} togglePersonnel={togglePersonnel} deletePersonnel={deletePersonnel} />}
-      {active === "rapor" && <RaporPanel shiftHistory={shiftHistory} transactions={transactions} deleteShiftReport={deleteShiftReport} />}
+      {active === "rapor" && (
+  <RaporPanel
+    shiftHistory={shiftHistory}
+    transactions={transactions}
+    customers={customers}
+    oilProducts={oilProducts}
+    personnel={personnel}
+    deleteShiftReport={deleteShiftReport}
+  />
+)}
     </main></div></div>;
 }
 
@@ -501,7 +495,7 @@ function CariPanel({ customerForm, setCustomerForm, addCustomer, customerSearch,
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [moveForm, setMoveForm] = useState({ type: "borc", amount: "", description: "" });
   const selectedCustomer = filteredCustomers.find((c) => String(c.id) === String(selectedCustomerId));
-  const customerMoves = transactions.filter((t) => String(t.customerId) === String(selectedCustomerId));
+  const customerMoves = transactions.filter((t) => String(t.customer_id || t.customerId) === String(selectedCustomerId));
 
   function saveMove() {
     const ok = addManualCustomerMove(selectedCustomerId, moveForm.type, moveForm.amount, moveForm.description);
@@ -537,7 +531,7 @@ function PersonelPanel({ personnel, newPersonnel, setNewPersonnel, addPersonnel,
   return <section className="rounded-3xl bg-slate-900 border border-slate-800 p-5 max-w-3xl"><h3 className="font-black text-xl mb-4">Personel Ekle / Sil</h3><div className="flex gap-3 mb-5"><input value={newPersonnel} onChange={(e) => setNewPersonnel(e.target.value)} placeholder="Personel adı" className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 outline-none focus:border-blue-500" /><button onClick={addPersonnel} className="rounded-2xl bg-blue-700 hover:bg-blue-600 px-5 font-bold"><Plus /></button></div><div className="space-y-3">{personnel.map((p) => <div key={p.id} className="rounded-2xl bg-slate-950 border border-slate-800 p-4 flex items-center justify-between"><div><div className="font-bold">{p.name}</div><div className={`text-sm ${p.active ? "text-emerald-300" : "text-slate-500"}`}>{p.active ? "Aktif" : "Pasif"}</div></div><div className="flex gap-2"><button onClick={() => togglePersonnel(p.id)} className="rounded-xl bg-slate-800 px-3 py-2 text-sm">{p.active ? "Pasif Yap" : "Aktif Yap"}</button><button onClick={() => deletePersonnel(p.id)} className="rounded-xl bg-red-950/60 text-red-300 p-3 hover:bg-red-900"><Trash2 className="w-4 h-4" /></button></div></div>)}</div></section>;
 }
 
-function RaporPanel({ shiftHistory, transactions, deleteShiftReport }) {
+function RaporPanel({ shiftHistory, transactions, customers, oilProducts, personnel, deleteShiftReport }) {
   const today = new Date().toISOString().slice(0, 10);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState(today);
@@ -564,6 +558,32 @@ function RaporPanel({ shiftHistory, transactions, deleteShiftReport }) {
   function printReport() {
     window.print();
   }
+  function downloadBackup() {
+  const backupData = {
+  exportDate: new Date().toISOString(),
+  customers,
+  transactions,
+  oilProducts,
+  personnel,
+  shiftHistory,
+};
+  const blob = new Blob(
+    [JSON.stringify(backupData, null, 2)],
+    { type: "application/json" }
+  );
+
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `cetin-petrol-yedek-${new Date().toISOString().slice(0, 10)}.json`;
+
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  URL.revokeObjectURL(url);
+}
 
   return <div className="space-y-5">
     <section className="rounded-3xl bg-slate-900 border border-slate-800 p-5 print:bg-white print:text-black print:border-0">
@@ -572,9 +592,16 @@ function RaporPanel({ shiftHistory, transactions, deleteShiftReport }) {
           <Input label="Başlangıç Tarihi" type="date" value={startDate} onChange={setStartDate} />
           <Input label="Bitiş Tarihi" type="date" value={endDate} onChange={setEndDate} />
         </div>
-        <button onClick={printReport} className="rounded-2xl bg-blue-700 hover:bg-blue-600 px-5 py-3 font-bold">Yazdır / PDF Al</button>
-      </div>
+        <div className="flex gap-3">
+  <button onClick={printReport} className="rounded-2xl bg-blue-700 hover:bg-blue-600 px-5 py-3 font-bold">
+    Yazdır / PDF Al
+  </button>
 
+  <button onClick={downloadBackup} className="rounded-2xl bg-emerald-700 hover:bg-emerald-600 px-5 py-3 font-bold">
+    Yedek İndir
+  </button>
+</div>
+</div>
       <div id="printable-report" className="mt-5 print:mt-0">
         <div className="hidden print:block mb-6">
           <h1 className="text-2xl font-black">ÇETİN PETROL VARDİYA RAPORU</h1>
