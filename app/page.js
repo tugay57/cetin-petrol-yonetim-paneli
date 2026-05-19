@@ -2,6 +2,24 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabase";
+import {
+  getCustomers,
+  addCustomer as dbAddCustomer,
+  deleteCustomer as dbDeleteCustomer,
+  getOilProducts,
+  addOilProduct as dbAddOilProduct,
+  deleteOilProduct as dbDeleteOilProduct,
+  getPersonnel,
+  addPersonnel as dbAddPersonnel,
+  deletePersonnel as dbDeletePersonnel,
+  getTransactions,
+  addTransaction as dbAddTransaction,
+  deleteTransaction as dbDeleteTransaction,
+  getShiftReports,
+  addShiftReport as dbAddShiftReport,
+  deleteShiftReport as dbDeleteShiftReport,
+  createDailyBackup,
+} from "./services/database";
 import { motion } from "framer-motion";
 import { Lock, LogOut, Users, Wallet, CreditCard, FileText, Plus, Trash2, Search, Fuel, UserPlus, ReceiptText, Package } from "lucide-react";
 
@@ -71,10 +89,7 @@ export default function CetinPetrolPanel() {
   ]));
   const [newPersonnel, setNewPersonnel] = useState("");
 
-  const [oilProducts, setOilProducts] = useState(() => loadSaved("cetin_oilProducts", [
-    { id: 1, name: "Motor Yağı", price: "" },
-    { id: 2, name: "AdBlue", price: "" },
-  ]));
+const [oilProducts, setOilProducts] = useState([]);
   const [oilForm, setOilForm] = useState({ name: "", price: "" });
 
   const [customers, setCustomers] = useState(() => loadSaved("cetin_customers", []));
@@ -104,12 +119,39 @@ export default function CetinPetrolPanel() {
     staffAccounts: [emptyStaffAccount("1"), emptyStaffAccount("2"), emptyStaffAccount("3")],
   }));
 
-  useEffect(() => saveLocal("cetin_personnel", personnel), [personnel]);
-  useEffect(() => saveLocal("cetin_oilProducts", oilProducts), [oilProducts]);
-  useEffect(() => saveLocal("cetin_customers", customers), [customers]);
-  useEffect(() => saveLocal("cetin_transactions", transactions), [transactions]);
-  useEffect(() => saveLocal("cetin_shiftHistory", shiftHistory), [shiftHistory]);
-  useEffect(() => saveLocal("cetin_currentShift", shift), [shift]);
+useEffect(() => {
+  async function loadDatabase() {
+    const [
+      customersData,
+      oilProductsData,
+      personnelData,
+      transactionsData,
+      shiftReportsData,
+    ] = await Promise.all([
+      getCustomers(),
+      getOilProducts(),
+      getPersonnel(),
+      getTransactions(),
+      getShiftReports(),
+    ]);
+
+    if (customersData) setCustomers(customersData);
+    setOilProducts(oilProductsData || []);
+    if (personnelData.length) setPersonnel(personnelData);
+    if (transactionsData) setTransactions(transactionsData);
+    if (shiftReportsData) setShiftHistory(shiftReportsData);
+
+    await createDailyBackup({
+      personnel: personnelData,
+      customers: customersData,
+      transactions: transactionsData,
+      oil_products: oilProductsData,
+      shift_reports: shiftReportsData,
+    });
+  }
+
+  loadDatabase();
+}, []);
 
   function getOilProduct(productId) {
     return oilProducts.find((p) => String(p.id) === String(productId));
@@ -159,9 +201,10 @@ export default function CetinPetrolPanel() {
     const map = {};
     customers.forEach((c) => (map[c.id] = 0));
     transactions.forEach((t) => {
-      if (!map[t.customerId]) map[t.customerId] = 0;
-      if (t.type === "borc") map[t.customerId] += t.amount;
-      if (t.type === "tahsilat") map[t.customerId] -= t.amount;
+      const customerId = t.customer_id || t.customerId;
+if (!map[customerId]) map[customerId] = 0;
+if (t.type === "borc") map[customerId] += Number(t.amount || 0);
+if (t.type === "tahsilat") map[customerId] -= Number(t.amount || 0);
     });
     return map;
   }, [customers, transactions]);
@@ -238,106 +281,187 @@ export default function CetinPetrolPanel() {
     }) }));
   }
 
-  function addPersonnel() {
-    if (!newPersonnel.trim()) return;
-    setPersonnel((p) => [...p, { id: Date.now(), name: newPersonnel.trim(), active: true }]);
+  async function addPersonnel() {
+  if (!newPersonnel.trim()) return;
+
+  const saved = await dbAddPersonnel({
+    name: newPersonnel.trim(),
+    active: true,
+  });
+
+  if (saved) {
+    setPersonnel((p) => [saved, ...p]);
     setNewPersonnel("");
   }
+}
 
-  function deletePersonnel(id) { setPersonnel((p) => p.filter((x) => x.id !== id)); }
+async function deletePersonnel(id) {
+  await dbDeletePersonnel(id);
+  setPersonnel((p) => p.filter((x) => x.id !== id));
+}
+
+  async function deleteTransaction(id) {
+  await dbDeleteTransaction(id);
+  setTransactions((t) => t.filter((x) => x.id !== id));
+}
   function togglePersonnel(id) { setPersonnel((p) => p.map((x) => (x.id === id ? { ...x, active: !x.active } : x))); }
 
-  function addOilProduct() {
-    if (!oilForm.name.trim()) return;
-    setOilProducts((p) => [...p, { id: Date.now(), name: oilForm.name.trim(), price: oilForm.price }]);
+  async function addOilProduct() {
+  if (!oilForm.name.trim()) return;
+
+  const newProduct = {
+    name: oilForm.name.trim(),
+    price: numberValue(oilForm.price),
+  };
+
+  const saved = await dbAddOilProduct(newProduct);
+
+  if (saved) {
+    setOilProducts((p) => [saved, ...p]);
     setOilForm({ name: "", price: "" });
   }
+}
 
   function updateOilProduct(id, field, value) {
     setOilProducts((p) => p.map((x) => x.id === id ? { ...x, [field]: value } : x));
   }
 
-  function deleteOilProduct(id) {
-    setOilProducts((p) => p.filter((x) => x.id !== id));
-    setShift((s) => ({ ...s, staffAccounts: s.staffAccounts.map((a) => ({ ...a, oilSales: a.oilSales.map((line) => String(line.productId) === String(id) ? { ...line, productId: "" } : line) })) }));
-  }
+  async function deleteOilProduct(id) {
+  await dbDeleteOilProduct(id);
 
- async function addCustomer() {
+  setOilProducts((p) => p.filter((x) => x.id !== id));
+  setShift((s) => ({
+    ...s,
+    staffAccounts: s.staffAccounts.map((a) => ({
+      ...a,
+      oilSales: a.oilSales.map((line) =>
+        String(line.productId) === String(id) ? { ...line, productId: "" } : line
+      ),
+    })),
+  }));
+}
+
+async function addCustomer() {
   if (!customerForm.name.trim()) return;
 
-  const newCustomer = {
+  const saved = await dbAddCustomer({
     name: customerForm.name.trim(),
     phone: customerForm.phone,
     plate: customerForm.plate,
     note: customerForm.note,
-  };
+  });
 
-  const { data, error } = await supabase
-    .from("customers")
-    .insert([newCustomer])
-    .select();
-
-  if (error) {
-    alert("Cari eklenemedi: " + error.message);
-    return;
-  }
-
-  if (data) {
-    setCustomers((c) => [...data, ...c]);
+  if (saved) {
+    setCustomers((c) => [saved, ...c]);
     setCustomerForm({ name: "", phone: "", plate: "", note: "" });
   }
 }
 
-  function deleteCustomer(id) {
-    setCustomers((c) => c.filter((x) => x.id !== id));
-    setTransactions((t) => t.filter((x) => x.customerId !== id));
-  }
+async function addCustomer() {
+  if (!customerForm.name.trim()) return;
 
-  function deleteTransaction(id) {
-    setTransactions((t) => t.filter((x) => x.id !== id));
-  }
+  const saved = await dbAddCustomer({
+    name: customerForm.name.trim(),
+    phone: customerForm.phone,
+    plate: customerForm.plate,
+    note: customerForm.note,
+  });
 
-  function addManualCustomerMove(customerId, type, amount, description) {
-    const customer = customers.find((c) => String(c.id) === String(customerId));
-    const value = numberValue(amount);
-    if (!customer || value <= 0) return false;
-    setTransactions((t) => [
-      {
-        id: Date.now() + Math.random(),
-        date: shift.date,
-        customerId: Number(customerId),
-        customerName: customer.name,
-        type,
-        amount: value,
-        description: description || (type === "borc" ? "Manuel borç eklendi" : "Manuel tahsilat düşüldü"),
-      },
-      ...t,
-    ]);
-    return true;
+  if (saved) {
+    setCustomers((c) => [saved, ...c]);
+    setCustomerForm({ name: "", phone: "", plate: "", note: "" });
   }
-
-  function addTransaction(type, customerId, amount, description = "", personName = "") {
-    const value = numberValue(amount);
-    if (!customerId || value <= 0) return false;
-    const customer = customers.find((c) => String(c.id) === String(customerId));
-    setTransactions((t) => [{ id: Date.now() + Math.random(), date: shift.date, customerId: Number(customerId), customerName: customer?.name || "Cari", type, amount: value, description: personName ? `${description} - ${personName}` : description }, ...t]);
-    return true;
-  }
-
-  function saveShift() {
-    staffSummaries.forEach((s) => {
-      if (s.currentSaleCustomerId && s.currentSale > 0) addTransaction("borc", s.currentSaleCustomerId, s.currentSale, "Vardiya cari satış / veresiye", s.personnelName);
-      if (s.currentCollectionCustomerId && s.currentCollection > 0) addTransaction("tahsilat", s.currentCollectionCustomerId, s.currentCollection, "Vardiya cari tahsilat", s.personnelName);
-    });
-    setShiftHistory((h) => [{ id: Date.now(), date: shift.date, totals: { ...totals }, staff: staffSummaries.map((s) => ({ ...s, banks: { ...s.banks } })) }, ...h]);
-    setShift((s) => ({ ...s, staffAccounts: [emptyStaffAccount(), emptyStaffAccount(), emptyStaffAccount()] }));
-    setActiveStaffIndex(0);
-  }
-
-  function deleteShiftReport(id) {
-  setShiftHistory((h) => h.filter((x) => x.id !== id));
 }
 
+  async function deleteCustomer(id) {
+  await dbDeleteCustomer(id);
+
+  setCustomers((c) => c.filter((x) => x.id !== id));
+  setTransactions((t) => t.filter((x) => String(x.customer_id) !== String(id)));
+}
+
+
+  async function addManualCustomerMove(customerId, type, amount, description) {
+  const customer = customers.find((c) => String(c.id) === String(customerId));
+  const value = numberValue(amount);
+  if (!customer || value <= 0) return false;
+
+  const saved = await dbAddTransaction({
+    customer_id: Number(customerId),
+    customer_name: customer.name,
+    type,
+    amount: value,
+    description: description || (type === "borc" ? "Manuel borç eklendi" : "Manuel tahsilat düşüldü"),
+    date: shift.date,
+  });
+
+  if (saved) {
+    setTransactions((t) => [saved, ...t]);
+    return true;
+  }
+
+  return false;
+}
+
+  async function addTransaction(type, customerId, amount, description = "", personName = "") {
+  const value = numberValue(amount);
+  if (!customerId || value <= 0) return false;
+
+  const customer = customers.find((c) => String(c.id) === String(customerId));
+
+  const saved = await dbAddTransaction({
+    customer_id: Number(customerId),
+    customer_name: customer?.name || "Cari",
+    type,
+    amount: value,
+    description: personName ? `${description} - ${personName}` : description,
+    date: shift.date,
+  });
+
+  if (saved) {
+    setTransactions((t) => [saved, ...t]);
+    return true;
+  }
+
+  return false;
+}
+  async function saveShift() {
+  for (const s of staffSummaries) {
+    if (s.currentSaleCustomerId && s.currentSale > 0) {
+      await addTransaction("borc", s.currentSaleCustomerId, s.currentSale, "Vardiya cari satış / veresiye", s.personnelName);
+    }
+
+    if (s.currentCollectionCustomerId && s.currentCollection > 0) {
+      await addTransaction("tahsilat", s.currentCollectionCustomerId, s.currentCollection, "Vardiya cari tahsilat", s.personnelName);
+    }
+  }
+
+  const reportPayload = {
+    date: shift.date,
+    totals: { ...totals },
+    staff: staffSummaries.map((s) => ({
+      ...s,
+      banks: { ...s.banks },
+    })),
+  };
+
+  const saved = await dbAddShiftReport(reportPayload);
+
+  if (saved) {
+    setShiftHistory((h) => [saved, ...h]);
+  }
+
+  setShift((s) => ({
+    ...s,
+    staffAccounts: [emptyStaffAccount(), emptyStaffAccount(), emptyStaffAccount()],
+  }));
+
+  setActiveStaffIndex(0);
+}
+ async function deleteShiftReport(id) {
+  await dbDeleteShiftReport(id);
+  setShiftHistory((h) => h.filter((x) => x.id !== id));
+}
   if (!loggedIn) {
     return <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4"><motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl p-8"><div className="flex items-center gap-3 mb-8"><div className="w-12 h-12 rounded-2xl bg-blue-700 flex items-center justify-center shadow-lg shadow-blue-950/60"><Fuel className="w-7 h-7" /></div><div><h1 className="text-2xl font-bold tracking-tight">ÇETİN PETROL</h1><p className="text-slate-400 text-sm">Yönetim Paneli</p></div></div><form onSubmit={handleLogin} className="space-y-4"><Input label="Kullanıcı adı" value={login.username} onChange={(v) => setLogin({ ...login, username: v })} /><Input label="Şifre" type="password" value={login.password} onChange={(v) => setLogin({ ...login, password: v })} />{loginError && <p className="text-red-400 text-sm">{loginError}</p>}<button className="w-full rounded-2xl bg-blue-700 hover:bg-blue-600 transition px-4 py-3 font-semibold flex items-center justify-center gap-2"><Lock className="w-4 h-4" /> Giriş Yap</button></form></motion.div></div>;
   }
