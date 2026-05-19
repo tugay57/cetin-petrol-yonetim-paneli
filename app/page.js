@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { supabase } from "./lib/supabase";
 import { motion } from "framer-motion";
 import { Lock, LogOut, Users, Wallet, CreditCard, FileText, Plus, Trash2, Search, Fuel, UserPlus, ReceiptText, Package } from "lucide-react";
 
@@ -77,6 +78,20 @@ export default function CetinPetrolPanel() {
   const [oilForm, setOilForm] = useState({ name: "", price: "" });
 
   const [customers, setCustomers] = useState(() => loadSaved("cetin_customers", []));
+  useEffect(() => {
+  async function fetchCustomers() {
+    const { data, error } = await supabase
+      .from("customers")
+      .select("*")
+      .order("id", { ascending: false });
+
+    if (!error && data) {
+      setCustomers(data);
+    }
+  }
+
+  fetchCustomers();
+}, []);
   const [customerForm, setCustomerForm] = useState({ name: "", phone: "", plate: "", note: "" });
   const [customerSearch, setCustomerSearch] = useState("");
 
@@ -247,11 +262,31 @@ export default function CetinPetrolPanel() {
     setShift((s) => ({ ...s, staffAccounts: s.staffAccounts.map((a) => ({ ...a, oilSales: a.oilSales.map((line) => String(line.productId) === String(id) ? { ...line, productId: "" } : line) })) }));
   }
 
-  function addCustomer() {
-    if (!customerForm.name.trim()) return;
-    setCustomers((c) => [...c, { id: Date.now(), ...customerForm, name: customerForm.name.trim() }]);
+ async function addCustomer() {
+  if (!customerForm.name.trim()) return;
+
+  const newCustomer = {
+    name: customerForm.name.trim(),
+    phone: customerForm.phone,
+    plate: customerForm.plate,
+    note: customerForm.note,
+  };
+
+  const { data, error } = await supabase
+    .from("customers")
+    .insert([newCustomer])
+    .select();
+
+  if (error) {
+    alert("Cari eklenemedi: " + error.message);
+    return;
+  }
+
+  if (data) {
+    setCustomers((c) => [...data, ...c]);
     setCustomerForm({ name: "", phone: "", plate: "", note: "" });
   }
+}
 
   function deleteCustomer(id) {
     setCustomers((c) => c.filter((x) => x.id !== id));
