@@ -450,7 +450,19 @@ function RaporPanel({ shiftHistory, transactions, deleteShiftReport }) {
               {filteredShifts.length === 0 && <tr><td colSpan="11" className="py-6 text-center text-slate-500 print:border print:text-black">Seçilen tarihte vardiya kaydı yok.</td></tr>}
               {filteredShifts.flatMap((h) => h.staff.map((s, index) => (
                 <tr key={`${h.id}-${s.id}`} className="border-b border-slate-900 print:border-black">
-                  <td className="py-3 print:border print:p-2">{index === 0 ? h.date : ""}</td>
+                  <td className="py-3 print:border print:p-2">
+  {index === 0 && (
+    <div className="flex items-center gap-2">
+      <span>{h.date}</span>
+      <button
+        onClick={() => deleteShiftReport(h.id)}
+        className="print:hidden rounded-lg bg-red-950/60 text-red-300 px-2 py-1 text-xs hover:bg-red-900"
+      >
+        Sil
+      </button>
+    </div>
+  )}
+</td>
                   <td className="py-3 font-bold print:border print:p-2">{s.personnelName}</td>
                   <td className="text-right print:border print:p-2">{money(s.incomeAmount)}</td>
                   <td className="text-right print:border print:p-2">{money(s.oilIncome)}</td>
