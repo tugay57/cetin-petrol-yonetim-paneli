@@ -589,20 +589,20 @@ function RaporPanel({ shiftHistory, transactions, customers, oilProducts, person
     <Input label="Bitiş Tarihi" type="date" value={endDate} onChange={setEndDate} />
   </div>
 
-  <div className="flex gap-3">
+  <div className="flex flex-col md:flex-row gap-3 w-full lg:w-auto">
     <button
-      onClick={printReport}
-      className="rounded-2xl bg-blue-700 hover:bg-blue-600 px-5 py-3 font-bold"
-    >
-      Yazdır / PDF Al
-    </button>
+  onClick={printReport}
+  className="rounded-2xl bg-blue-700 hover:bg-blue-600 px-5 py-3 font-bold whitespace-nowrap"
+>
+  Yazdır / PDF Al
+</button>
 
-    <button
-      onClick={downloadBackup}
-      className="rounded-2xl bg-emerald-700 hover:bg-emerald-600 px-5 py-3 font-bold"
-    >
-      Yedek İndir
-    </button>
+<button
+  onClick={downloadBackup}
+  className="rounded-2xl bg-emerald-700 hover:bg-emerald-600 px-5 py-3 font-bold whitespace-nowrap"
+>
+  Yedek İndir
+</button>
   </div>
 </div>
       <div id="printable-report" className="mt-5 print:mt-0">
