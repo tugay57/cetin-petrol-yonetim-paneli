@@ -326,8 +326,7 @@ async function deletePersonnel(id) {
 
 async function updateOilProduct(id, field, value) {
   const cleanValue =
-    field === "price" || field === "stock" ? numberValue(value) : value;
-
+  field === "price" || field === "stock" ? numberValue(value) : value;
   setOilProducts((p) =>
     p.map((x) => (x.id === id ? { ...x, [field]: cleanValue } : x))
   );
@@ -612,7 +611,34 @@ function clearAutomationFile() {
 
   setActiveStaffIndex(0);
 }
+function calculateOilStockDelta(accounts, direction) {
+  const delta = {};
 
+  accounts.forEach((account) => {
+    (account.oilSales || []).forEach((sale) => {
+      if (!sale.productId) return;
+
+      const qty = numberValue(sale.qty);
+      if (qty <= 0) return;
+
+      const key = String(sale.productId);
+      delta[key] = (delta[key] || 0) + direction * qty;
+    });
+  });
+
+  return delta;
+}
+
+async function applyOilStockDelta(delta) {
+  for (const [productId, change] of Object.entries(delta)) {
+    const product = oilProducts.find((p) => String(p.id) === String(productId));
+    if (!product) continue;
+
+    const newStock = Number(product.stock || 0) + change;
+
+    await updateOilProduct(product.id, "stock", newStock);
+  }
+}
   async function saveShift() {
   for (const s of staffSummaries) {
     if (s.currentSaleCustomerId && s.currentSale > 0) {
@@ -699,7 +725,19 @@ if (oldTasimatikTransactions.length > 0) {
 }),
 };
   let saved = null;
+let stockDelta = calculateOilStockDelta(shift.staffAccounts, -1);
 
+if (editingShiftId) {
+  const oldReport = shiftHistory.find((x) => x.id === editingShiftId);
+
+  if (oldReport) {
+    const oldStockDelta = calculateOilStockDelta(oldReport.staff || [], 1);
+
+    Object.entries(oldStockDelta).forEach(([productId, change]) => {
+      stockDelta[productId] = (stockDelta[productId] || 0) + change;
+    });
+  }
+}
   if (editingShiftId) {
     saved = await dbUpdateShiftReport(editingShiftId, reportPayload);
 
@@ -717,7 +755,9 @@ if (oldTasimatikTransactions.length > 0) {
       setShiftHistory((h) => [saved, ...h]);
     }
   }
-
+if (saved) {
+  await applyOilStockDelta(stockDelta);
+}
   setShift((s) => ({
   ...s,
   automationProducts: [],
@@ -738,17 +778,22 @@ setAutomationResult(null);
  async function deleteShiftReport(id) {
   const report = shiftHistory.find((x) => x.id === id);
 
+  if (report) {
+    const stockDelta = calculateOilStockDelta(report.staff || [], 1);
+    await applyOilStockDelta(stockDelta);
+  }
+
   await dbDeleteShiftReport(id);
 
   setShiftHistory((h) => h.filter((x) => x.id !== id));
 
   if (report?.date) {
     const tasitmatikTransactions = transactions.filter(
-  (t) =>
-    t.type === "borc" &&
-    String(t.description || "").includes(`Vardiya ${report.date}`) &&
-    String(t.description || "").toLocaleUpperCase("tr-TR").includes("TAŞITMATİK")
-);
+      (t) =>
+        t.type === "borc" &&
+        String(t.description || "").includes(`Vardiya ${report.date}`) &&
+        String(t.description || "").toLocaleUpperCase("tr-TR").includes("TAŞITMATİK")
+    );
 
     for (const t of tasitmatikTransactions) {
       await dbDeleteTransaction(t.id);
