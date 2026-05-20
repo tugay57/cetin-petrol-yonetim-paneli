@@ -1119,7 +1119,9 @@ const productTotalsList = Object.values(productTotals);
 </div>
       <div id="printable-report" className="mt-5 print:mt-0">
         <div className="hidden print:block mb-6">
-          <h1 className="text-2xl font-black">ÇETİN PETROL VARDİYA RAPORU</h1>
+          <h1 className="text-2xl font-black">
+  3K FOREKAZIK HAZIR BETON VARDİYA RAPORU
+</h1>
           <p>Tarih Aralığı: {startDate || "İlk kayıt"} - {endDate || "Son kayıt"}</p>
         </div>
 

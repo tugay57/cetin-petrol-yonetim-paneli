@@ -12,8 +12,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Çetin Petrol Yönetim Paneli",
-  description: "Çetin Petrol Yönetim Sistemi",
+  title: "3K AKARYAKIT",
 };
 
 export default function RootLayout({ children }) {
