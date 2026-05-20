@@ -1010,7 +1010,10 @@ function editShiftReport(report) {
       {active === "cari" && <CariPanel customerForm={customerForm} setCustomerForm={setCustomerForm} addCustomer={addCustomer} customerSearch={customerSearch} setCustomerSearch={setCustomerSearch} filteredCustomers={filteredCustomers} customerBalances={customerBalances} deleteCustomer={deleteCustomer} transactions={transactions} addManualCustomerMove={addManualCustomerMove} deleteTransaction={deleteTransaction} />}
       {active === "personel" && <PersonelPanel personnel={personnel} newPersonnel={newPersonnel} setNewPersonnel={setNewPersonnel} addPersonnel={addPersonnel} togglePersonnel={togglePersonnel} deletePersonnel={deletePersonnel} />}
       {active === "dashboard" && (
-      <DashboardPanel shiftHistory={shiftHistory} />
+      <DashboardPanel
+  shiftHistory={shiftHistory}
+  oilProducts={oilProducts}
+/>
       )}
       
       {active === "rapor" && (
@@ -1334,7 +1337,7 @@ function SummaryBox({ label, value, negative }) {
 function Empty({ text }) {
   return <div className="rounded-2xl border border-dashed border-slate-700 p-6 text-center text-slate-500">{text}</div>;
 }
-function DashboardPanel({ shiftHistory }) {
+function DashboardPanel({ shiftHistory, oilProducts }) {
   const reportDate = new Date();
 reportDate.setDate(reportDate.getDate() - 1);
 
@@ -1372,10 +1375,44 @@ const today = reportDate.toISOString().slice(0, 10);
   const dailyProducts = collectProducts(today, today);
   const weeklyProducts = collectProducts(weekStartText, today);
   const monthlyProducts = collectProducts(monthStartText, today);
+  const totalOilStock = oilProducts.reduce(
+  (sum, p) => sum + Number(p.stock || 0),
+  0
+);
+
+const totalOilStockValue = oilProducts.reduce(
+  (sum, p) =>
+    sum + Number(p.stock || 0) * Number(p.price || 0),
+  0
+);
 
   return (
     <div className="space-y-5">
+<section className="rounded-3xl bg-slate-900 border border-slate-800 p-5">
+  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
 
+    <div>
+      <div className="text-slate-400 text-sm">
+        Toplam Yağ Stoğu
+      </div>
+
+      <div className="font-black text-3xl mt-1">
+        {totalOilStock} Adet
+      </div>
+    </div>
+
+    <div className="text-right">
+      <div className="text-slate-400 text-sm">
+        Stok Değeri
+      </div>
+
+      <div className="font-black text-3xl text-emerald-300 mt-1">
+        {money(totalOilStockValue)}
+      </div>
+    </div>
+
+  </div>
+</section>
       <DashboardProductCard
         title="Bugünkü Akaryakıt Satışı"
         products={dailyProducts}
