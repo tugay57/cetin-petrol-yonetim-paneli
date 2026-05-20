@@ -1041,9 +1041,93 @@ function LineSection({ title, subtitle, account, type, items, addLine, updateLin
 function CariPanel({ customerForm, setCustomerForm, addCustomer, customerSearch, setCustomerSearch, filteredCustomers, customerBalances, deleteCustomer, transactions, addManualCustomerMove, deleteTransaction }) {
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [moveForm, setMoveForm] = useState({ type: "borc", amount: "", description: "" });
+  const today = new Date().toISOString().slice(0, 10);
+const [statementStartDate, setStatementStartDate] = useState("");
+const [statementEndDate, setStatementEndDate] = useState(today);
   const selectedCustomer = filteredCustomers.find((c) => String(c.id) === String(selectedCustomerId));
   const customerMoves = transactions.filter((t) => String(t.customer_id || t.customerId) === String(selectedCustomerId));
+const filteredCustomerMoves = customerMoves.filter((t) => {
+  if (statementStartDate && t.date < statementStartDate) return false;
+  if (statementEndDate && t.date > statementEndDate) return false;
+  return true;
+});
 
+const statementDebt = filteredCustomerMoves
+  .filter((t) => t.type === "borc")
+  .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+const statementPayment = filteredCustomerMoves
+  .filter((t) => t.type === "tahsilat")
+  .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+const statementBalance = statementDebt - statementPayment;
+
+function printCustomerStatement() {
+  if (!selectedCustomer) return;
+
+  const rows = filteredCustomerMoves
+    .map(
+      (t) => `
+        <tr>
+          <td>${t.date || ""}</td>
+          <td>${t.type === "borc" ? "Borç" : "Tahsilat"}</td>
+          <td>${t.description || ""}</td>
+          <td style="text-align:right;">${t.type === "borc" ? "+" : "-"}${money(t.amount)}</td>
+        </tr>
+      `
+    )
+    .join("");
+
+  const printWindow = window.open("", "_blank");
+
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Cari Hareket Dökümü</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 30px; color: #111; }
+          h1 { font-size: 22px; margin-bottom: 5px; }
+          .info { margin-bottom: 20px; font-size: 14px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #333; padding: 8px; font-size: 13px; }
+          th { background: #eee; }
+          .summary { margin-top: 20px; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <h1>Cari Hareket Dökümü</h1>
+        <div class="info">
+          <div><b>Cari:</b> ${selectedCustomer.name}</div>
+          <div><b>Tarih:</b> ${statementStartDate || "İlk kayıt"} - ${statementEndDate || "Son kayıt"}</div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Tarih</th>
+              <th>Tip</th>
+              <th>Açıklama</th>
+              <th>Tutar</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows || `<tr><td colspan="4">Bu tarih aralığında hareket yok.</td></tr>`}
+          </tbody>
+        </table>
+
+        <div class="summary">
+          Toplam Borç: ${money(statementDebt)}<br/>
+          Toplam Tahsilat: ${money(statementPayment)}<br/>
+          Döküm Bakiyesi: ${money(statementBalance)}
+        </div>
+      </body>
+    </html>
+  `);
+
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
+}
   async function saveMove() {
   const ok = await addManualCustomerMove(
     selectedCustomerId,
@@ -1072,16 +1156,87 @@ function CariPanel({ customerForm, setCustomerForm, addCustomer, customerSearch,
           <Input label="Tutar" value={moveForm.amount} onChange={(v) => setMoveForm({ ...moveForm, amount: v })} placeholder="0" />
           <Input label="Açıklama" value={moveForm.description} onChange={(v) => setMoveForm({ ...moveForm, description: v })} placeholder="Örn: dışardan ödeme, düzeltme..." />
           <button onClick={saveMove} className="rounded-2xl bg-blue-700 hover:bg-blue-600 px-4 py-3 font-bold">Kaydet</button>
-        </div>
+        </div><div className="rounded-2xl bg-slate-950 border border-slate-800 p-4">
+  <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+    <div className="grid md:grid-cols-2 gap-3">
+      <Input
+        label="Döküm Başlangıç Tarihi"
+        type="date"
+        value={statementStartDate}
+        onChange={setStatementStartDate}
+      />
+      <Input
+        label="Döküm Bitiş Tarihi"
+        type="date"
+        value={statementEndDate}
+        onChange={setStatementEndDate}
+      />
+    </div>
+
+    <button
+      onClick={printCustomerStatement}
+      className="rounded-2xl bg-emerald-700 hover:bg-emerald-600 px-5 py-3 font-bold"
+    >
+      Yazdır / PDF Al
+    </button>
+  </div>
+
+  <div className="grid md:grid-cols-3 gap-3 mt-4">
+    <SummaryBox label="Toplam Borç" value={money(statementDebt)} />
+    <SummaryBox label="Toplam Tahsilat" value={money(statementPayment)} />
+    <SummaryBox
+      label="Döküm Bakiyesi"
+      value={money(statementBalance)}
+      negative={statementBalance > 0}
+    />
+  </div>
+</div>
         <div className="space-y-3">
-          {customerMoves.length === 0 && <Empty text="Bu cari için hareket yok." />}
-          {customerMoves.map((t) => <div key={t.id} className="rounded-2xl bg-slate-950 border border-slate-800 p-4 flex flex-col md:flex-row md:items-center justify-between gap-3"><div><div className="font-bold">{t.type === "borc" ? "Borç" : "Tahsilat"}</div><div className="text-sm text-slate-400">{t.date} • {t.description}</div></div><div className="flex items-center gap-3"><div className={`font-black text-xl ${t.type === "borc" ? "text-red-300" : "text-emerald-300"}`}>{t.type === "borc" ? "+" : "-"}{money(t.amount)}</div><button onClick={() => deleteTransaction(t.id)} className="rounded-xl bg-red-950/60 text-red-300 p-3 hover:bg-red-900"><Trash2 className="w-4 h-4" /></button></div></div>)}
+          {filteredCustomerMoves.length === 0 && (
+            <Empty text="Bu tarih aralığında hareket yok." />
+          )}
+
+          {filteredCustomerMoves.map((t) => (
+            <div
+              key={t.id}
+              className="rounded-2xl bg-slate-950 border border-slate-800 p-4 flex flex-col md:flex-row md:items-center justify-between gap-3"
+            >
+              <div>
+                <div className="font-bold">
+                  {t.type === "borc" ? "Borç" : "Tahsilat"}
+                </div>
+
+                <div className="text-sm text-slate-400">
+                  {t.date} • {t.description}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div
+                  className={`font-black text-xl ${
+                    t.type === "borc"
+                      ? "text-red-300"
+                      : "text-emerald-300"
+                  }`}
+                >
+                  {t.type === "borc" ? "+" : "-"}
+                  {money(t.amount)}
+                </div>
+
+                <button
+                  onClick={() => deleteTransaction(t.id)}
+                  className="rounded-xl bg-red-950/60 text-red-300 p-3 hover:bg-red-900"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       </div>}
     </section>
   </div>;
 }
-
 function PersonelPanel({ personnel, newPersonnel, setNewPersonnel, addPersonnel, togglePersonnel, deletePersonnel }) {
   return <section className="rounded-3xl bg-slate-900 border border-slate-800 p-5 max-w-3xl"><h3 className="font-black text-xl mb-4">Personel Ekle / Sil</h3><div className="flex gap-3 mb-5"><input value={newPersonnel} onChange={(e) => setNewPersonnel(e.target.value)} placeholder="Personel adı" className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 outline-none focus:border-blue-500" /><button onClick={addPersonnel} className="rounded-2xl bg-blue-700 hover:bg-blue-600 px-5 font-bold"><Plus /></button></div><div className="space-y-3">{personnel.map((p) => <div key={p.id} className="rounded-2xl bg-slate-950 border border-slate-800 p-4 flex items-center justify-between"><div><div className="font-bold">{p.name}</div><div className={`text-sm ${p.active ? "text-emerald-300" : "text-slate-500"}`}>{p.active ? "Aktif" : "Pasif"}</div></div><div className="flex gap-2"><button onClick={() => togglePersonnel(p.id)} className="rounded-xl bg-slate-800 px-3 py-2 text-sm">{p.active ? "Pasif Yap" : "Aktif Yap"}</button><button onClick={() => deletePersonnel(p.id)} className="rounded-xl bg-red-950/60 text-red-300 p-3 hover:bg-red-900"><Trash2 className="w-4 h-4" /></button></div></div>)}</div></section>;
 }
