@@ -597,6 +597,55 @@ function clearAutomationFile() {
     if (s.currentSaleCustomerId && s.currentSale > 0) {
       await addTransaction("borc", s.currentSaleCustomerId, s.currentSale, "Vardiya cari satış / veresiye", s.personnelName);
     }
+    if (
+  String(s.personnelName || "").toLocaleUpperCase("tr-TR") === "TAŞITMATİK" &&
+  s.incomeAmount > 0
+) {
+  let tasitmatikCustomer = customers.find(
+    (c) => String(c.name || "").toLocaleUpperCase("tr-TR") === "TAŞITMATİK"
+  );
+const oldTasimatikTransactions = transactions.filter(
+  (t) =>
+    t.type === "borc" &&
+    String(t.customer_name || t.customerName || "")
+      .toLocaleUpperCase("tr-TR") === "TAŞITMATİK" &&
+    String(t.description || "").includes(`Vardiya ${shift.date}`)
+);
+
+for (const t of oldTasimatikTransactions) {
+  await dbDeleteTransaction(t.id);
+}
+
+if (oldTasimatikTransactions.length > 0) {
+  setTransactions((list) =>
+    list.filter(
+      (x) => !oldTasimatikTransactions.some((t) => t.id === x.id)
+    )
+  );
+}
+  if (!tasitmatikCustomer) {
+    tasitmatikCustomer = await dbAddCustomer({
+      name: "TAŞITMATİK",
+      phone: "",
+      plate: "",
+      note: "Otobil",
+    });
+
+    if (tasitmatikCustomer) {
+      setCustomers((c) => [tasitmatikCustomer, ...c]);
+    }
+  }
+
+  if (tasitmatikCustomer) {
+    await addTransaction(
+      "borc",
+      tasitmatikCustomer.id,
+      s.incomeAmount,
+      `Otomasyon Taşıtmatik satışı - Vardiya ${shift.date}`,
+      s.personnelName
+    );
+  }
+}
 
     if (s.currentCollectionCustomerId && s.currentCollection > 0) {
       await addTransaction("tahsilat", s.currentCollectionCustomerId, s.currentCollection, "Vardiya cari tahsilat", s.personnelName);
@@ -654,8 +703,28 @@ function clearAutomationFile() {
 
  
  async function deleteShiftReport(id) {
+  const report = shiftHistory.find((x) => x.id === id);
+
   await dbDeleteShiftReport(id);
+
   setShiftHistory((h) => h.filter((x) => x.id !== id));
+
+  if (report?.date) {
+    const tasitmatikTransactions = transactions.filter(
+      (t) =>
+        t.type === "borc" &&
+        String(t.customer_name || t.customerName || "").toLocaleUpperCase("tr-TR") === "TAŞITMATİK" &&
+        String(t.description || "").includes(`Vardiya ${report.date}`)
+    );
+
+    for (const t of tasitmatikTransactions) {
+      await dbDeleteTransaction(t.id);
+    }
+
+    setTransactions((list) =>
+      list.filter((t) => !tasitmatikTransactions.some((x) => x.id === t.id))
+    );
+  }
 }
 
 function editShiftReport(report) {
