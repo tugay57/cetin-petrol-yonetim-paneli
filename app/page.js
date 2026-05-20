@@ -79,7 +79,7 @@ export default function CetinPetrolPanel() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [login, setLogin] = useState({ username: "", password: "" });
   const [loginError, setLoginError] = useState("");
-  const [active, setActive] = useState("vardiya");
+  const [active, setActive] = useState("dashboard");
   const [activeStaffIndex, setActiveStaffIndex] = useState(0);
   const [automationResult, setAutomationResult] = useState(null);
 
@@ -604,13 +604,12 @@ function clearAutomationFile() {
   const reportPayload = {
   date: shift.date,
   totals: { ...totals },
-  automationProducts: shift.automationProducts || [],
+  automation_products: shift.automationProducts || [],
   staff: staffSummaries.map((s) => ({
-      ...s,
-      banks: { ...s.banks },
-    })),
-  };
-
+    ...s,
+    banks: { ...s.banks },
+  })),
+};
   const saved = await dbAddShiftReport(reportPayload);
 
   if (saved) {
@@ -643,7 +642,14 @@ function clearAutomationFile() {
 </div><form onSubmit={handleLogin} className="space-y-4"><Input label="Kullanıcı adı" value={login.username} onChange={(v) => setLogin({ ...login, username: v })} /><Input label="Şifre" type="password" value={login.password} onChange={(v) => setLogin({ ...login, password: v })} />{loginError && <p className="text-red-400 text-sm">{loginError}</p>}<button className="w-full rounded-2xl bg-blue-700 hover:bg-blue-600 transition px-4 py-3 font-semibold flex items-center justify-center gap-2"><Lock className="w-4 h-4" /> Giriş Yap</button></form></motion.div></div>;
   }
 
-  const menu = [["vardiya", Wallet, "Vardiya"], ["cari", Users, "Cari Hesaplar"], ["yag", Package, "Yağ Cari"], ["personel", UserPlus, "Personeller"], ["rapor", FileText, "Raporlar"]];
+  const menu = [
+  ["dashboard", Wallet, "Dashboard"],
+  ["vardiya", Wallet, "Vardiya"],
+  ["cari", Users, "Cari Hesaplar"],
+  ["yag", Package, "Yağ Cari"],
+  ["personel", UserPlus, "Personeller"],
+  ["rapor", FileText, "Raporlar"],
+];
   const activeAccount = shift.staffAccounts[activeStaffIndex] || shift.staffAccounts[0];
   const activeSummary = activeAccount ? staffSummaries.find((s) => s.id === activeAccount.id) : null;
 
@@ -718,6 +724,10 @@ function clearAutomationFile() {
 
       {active === "cari" && <CariPanel customerForm={customerForm} setCustomerForm={setCustomerForm} addCustomer={addCustomer} customerSearch={customerSearch} setCustomerSearch={setCustomerSearch} filteredCustomers={filteredCustomers} customerBalances={customerBalances} deleteCustomer={deleteCustomer} transactions={transactions} addManualCustomerMove={addManualCustomerMove} deleteTransaction={deleteTransaction} />}
       {active === "personel" && <PersonelPanel personnel={personnel} newPersonnel={newPersonnel} setNewPersonnel={setNewPersonnel} addPersonnel={addPersonnel} togglePersonnel={togglePersonnel} deletePersonnel={deletePersonnel} />}
+      {active === "dashboard" && (
+      <DashboardPanel shiftHistory={shiftHistory} />
+      )}
+      
       {active === "rapor" && (
   <RaporPanel
     shiftHistory={shiftHistory}
@@ -803,6 +813,25 @@ function RaporPanel({ shiftHistory, transactions, customers, oilProducts, person
     return acc;
   }, { incomeAmount: 0, oilIncome: 0, cardTotal: 0, currentSale: 0, currentCollection: 0, expenses: 0, expectedCash: 0, cashDelivered: 0, cashDifference: 0 });
 
+const productTotals = {};
+
+filteredShifts.forEach((h) => {
+  (h.automation_products || h.automationProducts || []).forEach((p) => {
+    if (!productTotals[p.product]) {
+      productTotals[p.product] = {
+        product: p.product,
+        liter: 0,
+        amount: 0,
+      };
+    }
+
+    productTotals[p.product].liter += Number(p.liter || 0);
+    productTotals[p.product].amount += Number(p.amount || 0);
+  });
+});
+
+const productTotalsList = Object.values(productTotals);
+
   function printReport() {
     window.print();
   }
@@ -869,7 +898,52 @@ function RaporPanel({ shiftHistory, transactions, customers, oilProducts, person
           <SummaryBox label="Toplam Kart" value={money(reportTotals.cardTotal)} />
           <SummaryBox label="Toplam Fark" value={money(reportTotals.cashDifference)} negative={reportTotals.cashDifference < 0} />
         </div>
+<div className="rounded-2xl bg-slate-950 border border-slate-800 p-4 mb-5">
+  <h3 className="font-black text-lg mb-3">
+    Satılan Akaryakıt Ürünleri
+  </h3>
 
+  {productTotalsList.length === 0 && (
+    <div className="text-slate-400 text-sm">
+      Bu tarih aralığında otomasyon ürünü yok.
+    </div>
+  )}
+
+  {productTotalsList.length > 0 && (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="text-slate-400">
+          <tr className="border-b border-slate-800">
+            <th className="text-left py-2">Ürün</th>
+            <th className="text-right py-2">Litre</th>
+            <th className="text-right py-2">Tutar</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {productTotalsList.map((p) => (
+            <tr
+              key={p.product}
+              className="border-b border-slate-900"
+            >
+              <td className="py-2 font-bold">
+                {p.product}
+              </td>
+
+              <td className="text-right">
+                {p.liter.toFixed(2)} Lt
+              </td>
+
+              <td className="text-right">
+                {money(p.amount)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+</div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm border-collapse print:text-xs">
             <thead className="text-slate-400 print:text-black">
@@ -957,4 +1031,131 @@ function SummaryBox({ label, value, negative }) {
 
 function Empty({ text }) {
   return <div className="rounded-2xl border border-dashed border-slate-700 p-6 text-center text-slate-500">{text}</div>;
+}
+function DashboardPanel({ shiftHistory }) {
+  const reportDate = new Date();
+reportDate.setDate(reportDate.getDate() - 1);
+
+const today = reportDate.toISOString().slice(0, 10);
+
+  const weekStart = new Date();
+  weekStart.setDate(weekStart.getDate() - 6);
+  const weekStartText = weekStart.toISOString().slice(0, 10);
+
+  const monthStartText = today.slice(0, 8) + "01";
+
+  function collectProducts(startDate, endDate) {
+    const productMap = {};
+
+    shiftHistory
+      .filter((h) => h.date >= startDate && h.date <= endDate)
+      .forEach((h) => {
+        (h.automation_products || h.automationProducts || []).forEach((p) => {
+          if (!productMap[p.product]) {
+            productMap[p.product] = {
+              product: p.product,
+              liter: 0,
+              amount: 0,
+            };
+          }
+
+          productMap[p.product].liter += Number(p.liter || 0);
+          productMap[p.product].amount += Number(p.amount || 0);
+        });
+      });
+
+    return Object.values(productMap);
+  }
+
+  const dailyProducts = collectProducts(today, today);
+  const weeklyProducts = collectProducts(weekStartText, today);
+  const monthlyProducts = collectProducts(monthStartText, today);
+
+  return (
+    <div className="space-y-5">
+
+      <DashboardProductCard
+        title="Bugünkü Akaryakıt Satışı"
+        products={dailyProducts}
+      />
+
+      <DashboardProductCard
+        title="Son 7 Gün Akaryakıt Satışı"
+        products={weeklyProducts}
+      />
+
+      <DashboardProductCard
+        title="Bu Ay Akaryakıt Satışı"
+        products={monthlyProducts}
+      />
+
+    </div>
+  );
+}
+
+function DashboardProductCard({ title, products }) {
+  const totalLiter = products.reduce(
+    (sum, p) => sum + Number(p.liter || 0),
+    0
+  );
+
+  const totalAmount = products.reduce(
+    (sum, p) => sum + Number(p.amount || 0),
+    0
+  );
+
+  return (
+    <section className="rounded-3xl bg-slate-900 border border-slate-800 p-5">
+
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+
+        <h3 className="font-black text-xl">
+          {title}
+        </h3>
+
+        <div className="text-right">
+          <div className="text-sm text-slate-400">
+            Toplam
+          </div>
+
+          <div className="font-black text-lg">
+            {totalLiter.toFixed(2)} Lt / {money(totalAmount)}
+          </div>
+        </div>
+
+      </div>
+
+      {products.length === 0 && (
+        <Empty text="Bu dönem için akaryakıt satışı yok." />
+      )}
+
+      {products.length > 0 && (
+        <div className="grid md:grid-cols-3 gap-3">
+
+          {products.map((p) => (
+            <div
+              key={p.product}
+              className="rounded-2xl bg-slate-950 border border-slate-800 p-4"
+            >
+
+              <div className="text-sm text-slate-400">
+                {p.product}
+              </div>
+
+              <div className="font-black text-2xl mt-1">
+                {Number(p.liter || 0).toFixed(2)} Lt
+              </div>
+
+              <div className="text-sm text-slate-300 mt-1">
+                {money(p.amount)}
+              </div>
+
+            </div>
+          ))}
+
+        </div>
+      )}
+
+    </section>
+  );
 }
