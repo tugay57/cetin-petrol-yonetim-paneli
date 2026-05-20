@@ -574,12 +574,13 @@ async function handleAutomationFile(event) {
 
   const productTotals = Object.values(productMap);
 
-  setShift((s) => ({
-    ...s,
-    date: records[0]?.date || s.date,
-    staffAccounts: accounts,
-    automationProducts: productTotals,
-  }));
+ setShift((s) => ({
+  ...s,
+  date: records[0]?.date || s.date,
+  staffAccounts: accounts,
+  automationProducts: productTotals,
+  automationRecords: records,
+}));
 
   setActiveStaffIndex(0);
 
@@ -653,14 +654,22 @@ if (oldTasimatikTransactions.length > 0) {
   }
 
   if (tasitmatikCustomer) {
+  const tasitmatikRecords = (shift.automationRecords || []).filter(
+    (r) =>
+      String(r.personnelName || "")
+        .toLocaleUpperCase("tr-TR") === "TAŞITMATİK"
+  );
+
+  for (const record of tasitmatikRecords) {
     await addTransaction(
       "borc",
       tasitmatikCustomer.id,
-      s.incomeAmount,
-      `Otomasyon Taşıtmatik satışı - Vardiya ${shift.date}`,
-      s.personnelName
+      record.amount,
+      `Taşıtmatik plaka: ${record.plate} - Vardiya ${shift.date}`,
+      ""
     );
   }
+}
 }
 
     if (s.currentCollectionCustomerId && s.currentCollection > 0) {
@@ -706,13 +715,17 @@ if (oldTasimatikTransactions.length > 0) {
   }
 
   setShift((s) => ({
-    ...s,
-    staffAccounts: [
-      emptyStaffAccount(),
-      emptyStaffAccount(),
-      emptyStaffAccount(),
-    ],
-  }));
+  ...s,
+  automationProducts: [],
+  automationRecords: [],
+  staffAccounts: [
+    emptyStaffAccount(),
+    emptyStaffAccount(),
+    emptyStaffAccount(),
+  ],
+}));
+
+setAutomationResult(null);
 
   setActiveStaffIndex(0);
 }
@@ -727,11 +740,11 @@ if (oldTasimatikTransactions.length > 0) {
 
   if (report?.date) {
     const tasitmatikTransactions = transactions.filter(
-      (t) =>
-        t.type === "borc" &&
-        String(t.customer_name || t.customerName || "").toLocaleUpperCase("tr-TR") === "TAŞITMATİK" &&
-        String(t.description || "").includes(`Vardiya ${report.date}`)
-    );
+  (t) =>
+    t.type === "borc" &&
+    String(t.description || "").includes(`Vardiya ${report.date}`) &&
+    String(t.description || "").toLocaleUpperCase("tr-TR").includes("TAŞITMATİK")
+);
 
     for (const t of tasitmatikTransactions) {
       await dbDeleteTransaction(t.id);
@@ -749,6 +762,7 @@ function editShiftReport(report) {
   setShift({
     date: report.date,
     automationProducts: report.automation_products || report.automationProducts || [],
+    automationRecords: report.automation_records || report.automationRecords || [],
     staffAccounts: report.staff?.map((s) => ({
       ...s,
       banks: s.banks || Object.fromEntries(DEFAULT_BANKS.map((b) => [b, ""])),
