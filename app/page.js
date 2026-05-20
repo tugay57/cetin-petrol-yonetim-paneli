@@ -792,7 +792,7 @@ function editShiftReport(report) {
   }
 
   const menu = [
-  ["dashboard", Wallet, "Dashboard"],
+  ["dashboard", Wallet, "Ana Ekran"],
   ["vardiya", Wallet, "Vardiya"],
   ["cari", Users, "Cari Hesaplar"],
   ["yag", Package, "Yağ Cari"],
@@ -813,7 +813,7 @@ function editShiftReport(report) {
     <main className="flex-1 p-3 md:p-8 pb-24"><div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-950 border-t border-slate-800 p-2 flex gap-2 overflow-x-auto">{menu.map(([key, Icon, label]) => <button key={key} onClick={() => setActive(key)} className={`rounded-2xl px-4 py-3 flex items-center gap-2 whitespace-nowrap ${active === key ? "bg-blue-700" : "bg-slate-900"}`}><Icon className="w-4 h-4" /> {label}</button>)}</div><header className="mb-6">
   <h2 className="text-3xl font-black text-slate-800">
     {active === "dashboard"
-      ? "Dashboard"
+      ? "Ana Ekran"
       : active === "vardiya"
       ? "Sekmeli Vardiya Hesabı"
       : active === "cari"
