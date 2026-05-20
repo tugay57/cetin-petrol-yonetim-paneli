@@ -18,7 +18,8 @@ import {
   getShiftReports,
   addShiftReport as dbAddShiftReport,
   deleteShiftReport as dbDeleteShiftReport,
-  createDailyBackup,
+updateShiftReport as dbUpdateShiftReport,
+createDailyBackup,
 } from "./services/database";
 import { motion } from "framer-motion";
 import { Lock, LogOut, Users, Wallet, CreditCard, FileText, Plus, Trash2, Search, Fuel, UserPlus, ReceiptText, Package } from "lucide-react";
@@ -82,6 +83,7 @@ export default function CetinPetrolPanel() {
   const [active, setActive] = useState("dashboard");
   const [activeStaffIndex, setActiveStaffIndex] = useState(0);
   const [automationResult, setAutomationResult] = useState(null);
+  const [editingShiftId, setEditingShiftId] = useState(null);
 
  const [personnel, setPersonnel] = useState([]);
   const [newPersonnel, setNewPersonnel] = useState("");
@@ -601,32 +603,80 @@ function clearAutomationFile() {
     }
   }
 
-  const reportPayload = {
-  date: shift.date,
-  totals: { ...totals },
-  automation_products: shift.automationProducts || [],
-  staff: staffSummaries.map((s) => ({
-    ...s,
-    banks: { ...s.banks },
-  })),
-};
-  const saved = await dbAddShiftReport(reportPayload);
+   setActiveStaffIndex(0);
+  setActive("vardiya");
 
-  if (saved) {
-    setShiftHistory((h) => [saved, ...h]);
+  const reportPayload = {
+    date: shift.date,
+    totals: { ...totals },
+    automation_products: shift.automationProducts || [],
+    staff: shift.staffAccounts.map((account) => {
+  const summary = staffSummaries.find((s) => s.id === account.id);
+
+  return {
+    ...account,
+    ...summary,
+    banks: { ...account.banks },
+  };
+}),
+};
+  let saved = null;
+
+  if (editingShiftId) {
+    saved = await dbUpdateShiftReport(editingShiftId, reportPayload);
+
+    if (saved) {
+      setShiftHistory((h) =>
+        h.map((x) => (x.id === editingShiftId ? saved : x))
+      );
+
+      setEditingShiftId(null);
+    }
+  } else {
+    saved = await dbAddShiftReport(reportPayload);
+
+    if (saved) {
+      setShiftHistory((h) => [saved, ...h]);
+    }
   }
 
   setShift((s) => ({
     ...s,
-    staffAccounts: [emptyStaffAccount(), emptyStaffAccount(), emptyStaffAccount()],
+    staffAccounts: [
+      emptyStaffAccount(),
+      emptyStaffAccount(),
+      emptyStaffAccount(),
+    ],
   }));
 
   setActiveStaffIndex(0);
 }
+
+ 
  async function deleteShiftReport(id) {
   await dbDeleteShiftReport(id);
   setShiftHistory((h) => h.filter((x) => x.id !== id));
 }
+
+function editShiftReport(report) {
+  setEditingShiftId(report.id);
+
+  setShift({
+    date: report.date,
+    automationProducts: report.automation_products || report.automationProducts || [],
+    staffAccounts: report.staff?.map((s) => ({
+      ...s,
+      banks: s.banks || Object.fromEntries(DEFAULT_BANKS.map((b) => [b, ""])),
+      incomeItems: s.incomeItems || [newLine()],
+      expenseItems: s.expenseItems || [newLine()],
+      oilSales: s.oilSales || [newOilSaleLine()],
+    })) || [emptyStaffAccount()],
+  });
+
+  setActiveStaffIndex(0);
+  setActive("vardiya");
+}
+
   if (!loggedIn) {
     return <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4"><motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl p-8"><div className="mb-8 rounded-3xl bg-white p-4 shadow-2xl shadow-black/20">
   <img
@@ -661,7 +711,21 @@ function clearAutomationFile() {
     className="h-14 w-auto object-contain mx-auto"
   />
 </div><nav className="space-y-2 flex-1">{menu.map(([key, Icon, label]) => <button key={key} onClick={() => setActive(key)} className={`w-full rounded-2xl px-4 py-3 flex items-center gap-3 text-left transition ${active === key ? "bg-blue-700 text-white" : "text-slate-300 hover:bg-slate-800"}`}><Icon className="w-5 h-5" /> {label}</button>)}</nav><button onClick={() => setLoggedIn(false)} className="rounded-2xl px-4 py-3 flex items-center gap-3 text-slate-300 hover:bg-slate-800"><LogOut className="w-5 h-5" /> Çıkış</button></aside>
-    <main className="flex-1 p-3 md:p-8 pb-24"><div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-950 border-t border-slate-800 p-2 flex gap-2 overflow-x-auto">{menu.map(([key, Icon, label]) => <button key={key} onClick={() => setActive(key)} className={`rounded-2xl px-4 py-3 flex items-center gap-2 whitespace-nowrap ${active === key ? "bg-blue-700" : "bg-slate-900"}`}><Icon className="w-4 h-4" /> {label}</button>)}</div><header className="mb-6"><h2 className="text-3xl font-black text-slate-800">{active === "vardiya" ? "Sekmeli Vardiya Hesabı" : active === "cari" ? "Cari Hesaplar" : active === "yag" ? "Yağ Cari / Ürün Fiyatları" : active === "personel" ? "Personel Yönetimi" : "Raporlar"}</h2><p className="text-slate-400 mt-1">Yağ ürünlerini fiyatıyla kaydet, vardiyada personel satışı olarak seç.</p></header>
+    <main className="flex-1 p-3 md:p-8 pb-24"><div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-950 border-t border-slate-800 p-2 flex gap-2 overflow-x-auto">{menu.map(([key, Icon, label]) => <button key={key} onClick={() => setActive(key)} className={`rounded-2xl px-4 py-3 flex items-center gap-2 whitespace-nowrap ${active === key ? "bg-blue-700" : "bg-slate-900"}`}><Icon className="w-4 h-4" /> {label}</button>)}</div><header className="mb-6">
+  <h2 className="text-3xl font-black text-slate-800">
+    {active === "dashboard"
+      ? "Dashboard"
+      : active === "vardiya"
+      ? "Sekmeli Vardiya Hesabı"
+      : active === "cari"
+      ? "Cari Hesaplar"
+      : active === "yag"
+      ? "Yağ Cari / Ürün Fiyatları"
+      : active === "personel"
+      ? "Personel Yönetimi"
+      : "Raporlar"}
+  </h2>
+</header>
 
       {active === "vardiya" && <div className="space-y-5"><section className="rounded-3xl bg-slate-900 border border-slate-800 p-5"><div className="grid md:grid-cols-5 gap-4 items-end"><Input label="Vardiya Tarihi" type="date" value={shift.date} onChange={(v) => setShift({ ...shift, date: v })} /><div className="md:col-span-4 rounded-2xl bg-slate-950 border border-slate-800 p-4 grid md:grid-cols-5 gap-3"><SummaryBox label="Toplam Gelir" value={money(totals.incomeAmount)} /><SummaryBox label="Yağ Satışı" value={money(totals.oilIncome)} /><SummaryBox label="Toplam Kart" value={money(totals.cardTotal)} /><SummaryBox label="Beklenen Nakit" value={money(totals.expectedCash)} /><SummaryBox label="Toplam Fark" value={money(totals.cashDifference)} negative={totals.cashDifference < 0} /></div></div></section>
       <section className="rounded-3xl bg-slate-900 border border-slate-800 p-5">
@@ -736,6 +800,7 @@ function clearAutomationFile() {
     oilProducts={oilProducts}
     personnel={personnel}
     deleteShiftReport={deleteShiftReport}
+    editShiftReport={editShiftReport}
   />
 )}
     </main></div></div>;
@@ -755,10 +820,18 @@ function CariPanel({ customerForm, setCustomerForm, addCustomer, customerSearch,
   const selectedCustomer = filteredCustomers.find((c) => String(c.id) === String(selectedCustomerId));
   const customerMoves = transactions.filter((t) => String(t.customer_id || t.customerId) === String(selectedCustomerId));
 
-  function saveMove() {
-    const ok = addManualCustomerMove(selectedCustomerId, moveForm.type, moveForm.amount, moveForm.description);
-    if (ok) setMoveForm({ type: "borc", amount: "", description: "" });
+  async function saveMove() {
+  const ok = await addManualCustomerMove(
+    selectedCustomerId,
+    moveForm.type,
+    moveForm.amount,
+    moveForm.description
+  );
+
+  if (ok) {
+    setMoveForm({ type: "borc", amount: "", description: "" });
   }
+}
 
   return <div className="grid xl:grid-cols-3 gap-5">
     <section className="rounded-3xl bg-slate-900 border border-slate-800 p-5"><h3 className="font-black text-xl mb-4">Yeni Cari Ekle</h3><div className="space-y-3"><Input label="Ad Soyad / Firma" value={customerForm.name} onChange={(v) => setCustomerForm({ ...customerForm, name: v })} /><Input label="Telefon" value={customerForm.phone} onChange={(v) => setCustomerForm({ ...customerForm, phone: v })} /><Input label="Plaka" value={customerForm.plate} onChange={(v) => setCustomerForm({ ...customerForm, plate: v })} /><Input label="Not" value={customerForm.note} onChange={(v) => setCustomerForm({ ...customerForm, note: v })} /><button onClick={addCustomer} className="w-full rounded-2xl bg-blue-700 hover:bg-blue-600 px-4 py-3 font-bold flex justify-center gap-2"><Plus className="w-5 h-5" /> Cari Ekle</button></div></section>
@@ -789,7 +862,7 @@ function PersonelPanel({ personnel, newPersonnel, setNewPersonnel, addPersonnel,
   return <section className="rounded-3xl bg-slate-900 border border-slate-800 p-5 max-w-3xl"><h3 className="font-black text-xl mb-4">Personel Ekle / Sil</h3><div className="flex gap-3 mb-5"><input value={newPersonnel} onChange={(e) => setNewPersonnel(e.target.value)} placeholder="Personel adı" className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 outline-none focus:border-blue-500" /><button onClick={addPersonnel} className="rounded-2xl bg-blue-700 hover:bg-blue-600 px-5 font-bold"><Plus /></button></div><div className="space-y-3">{personnel.map((p) => <div key={p.id} className="rounded-2xl bg-slate-950 border border-slate-800 p-4 flex items-center justify-between"><div><div className="font-bold">{p.name}</div><div className={`text-sm ${p.active ? "text-emerald-300" : "text-slate-500"}`}>{p.active ? "Aktif" : "Pasif"}</div></div><div className="flex gap-2"><button onClick={() => togglePersonnel(p.id)} className="rounded-xl bg-slate-800 px-3 py-2 text-sm">{p.active ? "Pasif Yap" : "Aktif Yap"}</button><button onClick={() => deletePersonnel(p.id)} className="rounded-xl bg-red-950/60 text-red-300 p-3 hover:bg-red-900"><Trash2 className="w-4 h-4" /></button></div></div>)}</div></section>;
 }
 
-function RaporPanel({ shiftHistory, transactions, customers, oilProducts, personnel, deleteShiftReport }) {
+function RaporPanel({ shiftHistory, transactions, customers, oilProducts, personnel, deleteShiftReport, editShiftReport }) {
   const today = new Date().toISOString().slice(0, 10);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState(today);
@@ -969,6 +1042,12 @@ const productTotalsList = Object.values(productTotals);
   {index === 0 && (
     <div className="flex items-center gap-2">
       <span>{h.date}</span>
+      <button
+  onClick={() => editShiftReport(h)}
+  className="print:hidden rounded-lg bg-blue-700 text-white px-2 py-1 text-xs hover:bg-blue-600"
+>
+  Düzenle
+</button>
       <button
         onClick={() => deleteShiftReport(h.id)}
         className="print:hidden rounded-lg bg-red-950/60 text-red-300 px-2 py-1 text-xs hover:bg-red-900"

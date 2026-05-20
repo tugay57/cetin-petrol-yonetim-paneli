@@ -195,6 +195,21 @@ export async function deleteShiftReport(id) {
   }
 }
 
+export async function updateShiftReport(id, report) {
+  const { data, error } = await supabase
+    .from("shift_reports")
+    .update(report)
+    .eq("id", id)
+    .select();
+
+  if (error) {
+    console.error(error);
+    return null;
+  }
+
+  return data?.[0];
+}
+
 export async function createDailyBackup(payload) {
   const today = new Date().toISOString().slice(0, 10);
 
