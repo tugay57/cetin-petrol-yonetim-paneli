@@ -26,7 +26,7 @@ import { Lock, LogOut, Users, Wallet, CreditCard, FileText, Plus, Trash2, Search
 
 const DEFAULT_BANKS = ["Ziraat POS", "İş Bankası POS", "Garanti POS", "Yapı Kredi POS", "Akbank POS", "Diğer POS"];
 const ADMIN_USER = "admin";
-const ADMIN_PASS = "admin";
+const ADMIN_PASS = "3k";
 
 function money(value) {
   return Number(value || 0).toLocaleString("tr-TR", { style: "currency", currency: "TRY" });
