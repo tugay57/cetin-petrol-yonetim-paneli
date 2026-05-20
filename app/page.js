@@ -31,7 +31,15 @@ const ADMIN_PASS = "3k";
 function money(value) {
   return Number(value || 0).toLocaleString("tr-TR", { style: "currency", currency: "TRY" });
 }
+function formatDateTR(date) {
+  if (!date) return "";
 
+  const [year, month, day] = String(date).slice(0, 10).split("-");
+
+  if (!year || !month || !day) return date;
+
+  return `${day}/${month}/${year}`;
+}
 function numberValue(value) {
   const n = Number(String(value || "").replace(",", "."));
   return Number.isFinite(n) ? n : 0;
@@ -404,7 +412,7 @@ async function addCustomer() {
 }
 
 
-  async function addManualCustomerMove(customerId, type, amount, description) {
+  async function addManualCustomerMove(customerId, type, amount, description, date) {
   const customer = customers.find((c) => String(c.id) === String(customerId));
   const value = numberValue(amount);
   if (!customer || value <= 0) return false;
@@ -415,7 +423,7 @@ async function addCustomer() {
     type,
     amount: value,
     description: description || (type === "borc" ? "Manuel borç eklendi" : "Manuel tahsilat düşüldü"),
-    date: shift.date,
+    date: date || shift.date,
   });
 
   if (saved) {
@@ -1040,17 +1048,24 @@ function LineSection({ title, subtitle, account, type, items, addLine, updateLin
 
 function CariPanel({ customerForm, setCustomerForm, addCustomer, customerSearch, setCustomerSearch, filteredCustomers, customerBalances, deleteCustomer, transactions, addManualCustomerMove, deleteTransaction }) {
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
-  const [moveForm, setMoveForm] = useState({ type: "borc", amount: "", description: "" });
   const today = new Date().toISOString().slice(0, 10);
+const [moveForm, setMoveForm] = useState({
+  type: "borc",
+  amount: "",
+  description: "",
+  date: today,
+});
 const [statementStartDate, setStatementStartDate] = useState("");
 const [statementEndDate, setStatementEndDate] = useState(today);
   const selectedCustomer = filteredCustomers.find((c) => String(c.id) === String(selectedCustomerId));
   const customerMoves = transactions.filter((t) => String(t.customer_id || t.customerId) === String(selectedCustomerId));
-const filteredCustomerMoves = customerMoves.filter((t) => {
-  if (statementStartDate && t.date < statementStartDate) return false;
-  if (statementEndDate && t.date > statementEndDate) return false;
-  return true;
-});
+const filteredCustomerMoves = customerMoves
+  .filter((t) => {
+    if (statementStartDate && t.date < statementStartDate) return false;
+    if (statementEndDate && t.date > statementEndDate) return false;
+    return true;
+  })
+  .sort((a, b) => new Date(a.date) - new Date(b.date));
 
 const statementDebt = filteredCustomerMoves
   .filter((t) => t.type === "borc")
@@ -1069,7 +1084,7 @@ function printCustomerStatement() {
     .map(
       (t) => `
         <tr>
-          <td>${t.date || ""}</td>
+          <td>${formatDateTR(t.date)}</td>
           <td>${t.type === "borc" ? "Borç" : "Tahsilat"}</td>
           <td>${t.description || ""}</td>
           <td style="text-align:right;">${t.type === "borc" ? "+" : "-"}${money(t.amount)}</td>
@@ -1130,14 +1145,20 @@ function printCustomerStatement() {
 }
   async function saveMove() {
   const ok = await addManualCustomerMove(
-    selectedCustomerId,
-    moveForm.type,
-    moveForm.amount,
-    moveForm.description
-  );
+  selectedCustomerId,
+  moveForm.type,
+  moveForm.amount,
+  moveForm.description,
+  moveForm.date
+);
 
   if (ok) {
-    setMoveForm({ type: "borc", amount: "", description: "" });
+    setMoveForm({
+  type: "borc",
+  amount: "",
+  description: "",
+  date: today,
+});
   }
 }
 
@@ -1151,8 +1172,14 @@ function printCustomerStatement() {
       {!selectedCustomer && <Empty text="Hareket girmek için yukarıdan bir cari seç." />}
       {selectedCustomer && <div className="space-y-5">
         <div className="rounded-2xl bg-slate-950 border border-slate-800 p-4 flex flex-col md:flex-row md:items-center justify-between gap-3"><div><div className="text-sm text-slate-400">Seçili Cari</div><div className="font-black text-2xl">{selectedCustomer.name}</div></div><div className="text-right"><div className="text-sm text-slate-400">Güncel Bakiye</div><div className={`font-black text-2xl ${(customerBalances[selectedCustomer.id] || 0) > 0 ? "text-red-300" : "text-emerald-300"}`}>{money(customerBalances[selectedCustomer.id] || 0)}</div></div></div>
-        <div className="grid md:grid-cols-[180px_180px_1fr_140px] gap-3 items-end">
+        <div className="grid md:grid-cols-[160px_160px_160px_1fr_140px] gap-3 items-end">
           <Select label="Hareket Tipi" value={moveForm.type} onChange={(v) => setMoveForm({ ...moveForm, type: v })} options={[{ value: "borc", label: "Borç Ekle" }, { value: "tahsilat", label: "Tahsilat / Ödeme Düş" }]} />
+            <Input
+  label="Hareket Tarihi"
+  type="date"
+  value={moveForm.date}
+  onChange={(v) => setMoveForm({ ...moveForm, date: v })}
+/>
           <Input label="Tutar" value={moveForm.amount} onChange={(v) => setMoveForm({ ...moveForm, amount: v })} placeholder="0" />
           <Input label="Açıklama" value={moveForm.description} onChange={(v) => setMoveForm({ ...moveForm, description: v })} placeholder="Örn: dışardan ödeme, düzeltme..." />
           <button onClick={saveMove} className="rounded-2xl bg-blue-700 hover:bg-blue-600 px-4 py-3 font-bold">Kaydet</button>
@@ -1207,7 +1234,7 @@ function printCustomerStatement() {
                 </div>
 
                 <div className="text-sm text-slate-400">
-                  {t.date} • {t.description}
+                  {formatDateTR(t.date)} • {t.description}
                 </div>
               </div>
 
@@ -1422,7 +1449,7 @@ const productTotalsList = Object.values(productTotals);
                   <td className="py-3 print:border print:p-2">
   {index === 0 && (
     <div className="flex items-center gap-2">
-      <span>{h.date}</span>
+      <span>{formatDateTR(h.date)}</span>
       <button
   onClick={() => editShiftReport(h)}
   className="print:hidden rounded-lg bg-blue-700 text-white px-2 py-1 text-xs hover:bg-blue-600"
@@ -1472,7 +1499,11 @@ const productTotalsList = Object.values(productTotals);
 
     <section className="rounded-3xl bg-slate-900 border border-slate-800 p-5 print:hidden">
       <h3 className="font-black text-xl mb-4">Cari Hareketleri</h3>
-      <div className="space-y-3">{transactions.length === 0 && <Empty text="Henüz cari hareket yok." />}{transactions.map((t) => <div key={t.id} className="rounded-2xl bg-slate-950 border border-slate-800 p-4 flex justify-between gap-3"><div><div className="font-bold">{t.customer_name || t.customerName}</div><div className="text-sm text-slate-400">{t.date} • {t.description}</div></div><div className={`font-black ${t.type === "borc" ? "text-red-300" : "text-emerald-300"}`}>{t.type === "borc" ? "+" : "-"}{money(t.amount)}</div></div>)}</div>
+      <div className="space-y-3">{transactions.length === 0 && <Empty text="Henüz cari hareket yok." />}{transactions.map((t) => <div key={t.id} className="rounded-2xl bg-slate-950 border border-slate-800 p-4 flex justify-between gap-3"><div><div className="font-bold">{t.customer_name || t.customerName}</div><div className="text-sm text-slate-400">{new Date(t.date).toLocaleDateString("tr-TR", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+})} • {t.description}</div></div><div className={`font-black ${t.type === "borc" ? "text-red-300" : "text-emerald-300"}`}>{t.type === "borc" ? "+" : "-"}{money(t.amount)}</div></div>)}</div>
     </section>
   </div>;
 }
