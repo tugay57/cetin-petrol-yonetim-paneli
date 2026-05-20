@@ -574,6 +574,21 @@ async function handleAutomationFile(event) {
 
   event.target.value = "";
 }
+function clearAutomationFile() {
+  setAutomationResult(null);
+
+  setShift((s) => ({
+    ...s,
+    automationProducts: [],
+    staffAccounts: [
+      emptyStaffAccount(),
+      emptyStaffAccount(),
+      emptyStaffAccount(),
+    ],
+  }));
+
+  setActiveStaffIndex(0);
+}
 
   async function saveShift() {
   for (const s of staffSummaries) {
@@ -655,6 +670,15 @@ async function handleAutomationFile(event) {
     onChange={handleAutomationFile}
     className="block w-full text-sm text-slate-300 file:mr-4 file:rounded-2xl file:border-0 file:bg-blue-700 file:px-5 file:py-3 file:font-bold file:text-white hover:file:bg-blue-600"
   />
+
+{automationResult && (
+  <button
+    onClick={clearAutomationFile}
+    className="mt-4 rounded-2xl bg-red-950/60 text-red-300 px-5 py-3 font-bold hover:bg-red-900"
+  >
+    Yüklenen Otomasyon Dosyasını Sil
+  </button>
+)}
 
   {automationResult && (
     <div className="mt-5 grid md:grid-cols-2 gap-4">
