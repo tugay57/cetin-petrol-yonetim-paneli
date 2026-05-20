@@ -90,6 +90,8 @@ export default function CetinPetrolPanel() {
 
 const [oilProducts, setOilProducts] = useState([]);
   const [oilForm, setOilForm] = useState({ name: "", price: "" });
+  const [editingOilProductId, setEditingOilProductId] = useState(null);
+const [oilEditForm, setOilEditForm] = useState({ name: "", price: "" });
 
   const [customers, setCustomers] = useState(() => loadSaved("cetin_customers", []));
   useEffect(() => {
@@ -321,28 +323,42 @@ async function deletePersonnel(id) {
   }
 }
 
- async function updateOilProduct(id, field, value) {
-  const cleanValue =
-    field === "price" ? numberValue(value) : value;
+async function updateOilProduct(id, field, value) {
+  const cleanValue = field === "price" ? numberValue(value) : value;
 
   setOilProducts((p) =>
-    p.map((x) =>
-      x.id === id
-        ? { ...x, [field]: cleanValue }
-        : x
-    )
+    p.map((x) => (x.id === id ? { ...x, [field]: cleanValue } : x))
   );
 
   const { error } = await supabase
     .from("oil_products")
-    .update({
-      [field]: cleanValue,
-    })
+    .update({ [field]: cleanValue })
     .eq("id", id);
 
   if (error) {
     console.error(error);
   }
+}
+
+function startEditOilProduct(product) {
+  setEditingOilProductId(product.id);
+  setOilEditForm({
+    name: product.name || "",
+    price: product.price || "",
+  });
+}
+
+function cancelEditOilProduct() {
+  setEditingOilProductId(null);
+  setOilEditForm({ name: "", price: "" });
+}
+
+async function saveEditOilProduct(id) {
+  await updateOilProduct(id, "name", oilEditForm.name);
+  await updateOilProduct(id, "price", oilEditForm.price);
+
+  setEditingOilProductId(null);
+  setOilEditForm({ name: "", price: "" });
 }
 
   async function deleteOilProduct(id) {
@@ -853,7 +869,66 @@ function editShiftReport(report) {
       <h4 className="font-bold mb-3 flex items-center gap-2"><CreditCard className="w-5 h-5" /> Kart / POS</h4><div className="grid md:grid-cols-3 gap-4 mb-6">{DEFAULT_BANKS.map((bank) => <Input key={bank} label={bank} value={activeAccount.banks[bank]} onChange={(v) => updateStaffBank(activeAccount.id, bank, v)} placeholder="0" />)}</div><h4 className="font-bold mb-3 flex items-center gap-2"><ReceiptText className="w-5 h-5" /> Cari / Veresiye</h4><div className="grid md:grid-cols-4 gap-4 mb-6"><Select label="Cari Satış Kişi" value={activeAccount.currentSaleCustomerId} onChange={(v) => updateStaffAccount(activeAccount.id, "currentSaleCustomerId", v)} options={[{ value: "", label: "Cari seç" }, ...customers.map(c => ({ value: c.id, label: c.name }))]} /><Input label="Cari Satış Tutarı" value={activeAccount.currentSaleAmount} onChange={(v) => updateStaffAccount(activeAccount.id, "currentSaleAmount", v)} placeholder="0" /><Select label="Cari Tahsilat Kişi" value={activeAccount.currentCollectionCustomerId} onChange={(v) => updateStaffAccount(activeAccount.id, "currentCollectionCustomerId", v)} options={[{ value: "", label: "Cari seç" }, ...customers.map(c => ({ value: c.id, label: c.name }))]} /><Input label="Cari Tahsilat Tutarı" value={activeAccount.currentCollectionAmount} onChange={(v) => updateStaffAccount(activeAccount.id, "currentCollectionAmount", v)} placeholder="0" /></div><LineSection title="Giderler" subtitle="Yemek, masraf gibi giderleri ayrı satır gir." account={activeAccount} type="expense" items={activeAccount.expenseItems} addLine={addLine} updateLine={updateLine} deleteLine={deleteLine} total={activeSummary?.expenses} /><div className="grid md:grid-cols-6 gap-3"><SummaryBox label="Gelir" value={money(activeSummary?.incomeAmount)} /><SummaryBox label="Yağ" value={money(activeSummary?.oilIncome)} /><SummaryBox label="Kart" value={money(activeSummary?.cardTotal)} /><SummaryBox label="Cari" value={money(activeSummary?.currentSale)} /><SummaryBox label="Beklenen" value={money(activeSummary?.expectedCash)} /><SummaryBox label="Açık / Fazla" value={money(activeSummary?.cashDifference)} negative={(activeSummary?.cashDifference || 0) < 0} /></div></div>}</section>
       <section className="rounded-3xl bg-slate-900 border border-slate-800 p-5"><h3 className="font-black text-xl mb-4">Vardiya Sonuç Listesi</h3><div className="overflow-x-auto"><table className="w-full text-sm"><thead className="text-slate-400"><tr className="border-b border-slate-800"><th className="text-left py-3">Personel</th><th className="text-right py-3">Gelir</th><th className="text-right py-3">Yağ</th><th className="text-right py-3">Kart</th><th className="text-right py-3">Cari Satış</th><th className="text-right py-3">Tahsilat</th><th className="text-right py-3">Gider</th><th className="text-right py-3">Beklenen</th><th className="text-right py-3">Teslim</th><th className="text-right py-3">Açık/Fazla</th></tr></thead><tbody>{staffSummaries.map((s) => <tr key={s.id} className="border-b border-slate-900"><td className="py-3 font-bold">{s.personnelName}</td><td className="text-right">{money(s.incomeAmount)}</td><td className="text-right">{money(s.oilIncome)}</td><td className="text-right">{money(s.cardTotal)}</td><td className="text-right">{money(s.currentSale)}</td><td className="text-right">{money(s.currentCollection)}</td><td className="text-right">{money(s.expenses)}</td><td className="text-right font-bold">{money(s.expectedCash)}</td><td className="text-right font-bold">{money(s.cashDelivered)}</td><td className={`text-right font-black ${s.cashDifference < 0 ? "text-red-300" : "text-emerald-300"}`}>{money(s.cashDifference)}</td></tr>)}</tbody></table></div><button onClick={saveShift} className="mt-5 w-full rounded-2xl bg-blue-700 hover:bg-blue-600 px-4 py-3 font-bold">Vardiyayı Kaydet</button></section></div>}
 
-      {active === "yag" && <section className="rounded-3xl bg-slate-900 border border-slate-800 p-5 max-w-4xl"><h3 className="font-black text-xl mb-4">Yağ Cari / Ürün Fiyatları</h3><div className="grid md:grid-cols-[1fr_180px_120px] gap-3 items-end mb-6"><Input label="Ürün Adı" value={oilForm.name} onChange={(v) => setOilForm({ ...oilForm, name: v })} placeholder="Örn: 10W40 Motor Yağı" /><Input label="Satış Fiyatı" value={oilForm.price} onChange={(v) => setOilForm({ ...oilForm, price: v })} placeholder="0" /><button onClick={addOilProduct} className="rounded-2xl bg-blue-700 hover:bg-blue-600 px-4 py-3 font-bold flex justify-center gap-2"><Plus className="w-5 h-5" /> Ekle</button></div><div className="space-y-3">{oilProducts.length === 0 && <Empty text="Henüz yağ ürünü eklenmedi." />}{oilProducts.map((p) => <div key={p.id} className="grid md:grid-cols-[1fr_180px_48px] gap-3 items-end rounded-2xl bg-slate-950 border border-slate-800 p-4"><Input label="Ürün Adı" value={p.name} onChange={(v) => updateOilProduct(p.id, "name", v)} /><Input label="Fiyat" value={p.price} onChange={(v) => updateOilProduct(p.id, "price", v)} /><button onClick={() => deleteOilProduct(p.id)} className="rounded-xl bg-red-950/60 text-red-300 h-12 flex items-center justify-center hover:bg-red-900"><Trash2 className="w-4 h-4" /></button></div>)}</div></section>}
+      {active === "yag" && <section className="rounded-3xl bg-slate-900 border border-slate-800 p-5 max-w-4xl"><h3 className="font-black text-xl mb-4">Yağ Cari / Ürün Fiyatları</h3><div className="grid md:grid-cols-[1fr_180px_120px] gap-3 items-end mb-6"><Input label="Ürün Adı" value={oilForm.name} onChange={(v) => setOilForm({ ...oilForm, name: v })} placeholder="Örn: 10W40 Motor Yağı" /><Input label="Satış Fiyatı" value={oilForm.price} onChange={(v) => setOilForm({ ...oilForm, price: v })} placeholder="0" /><button onClick={addOilProduct} className="rounded-2xl bg-blue-700 hover:bg-blue-600 px-4 py-3 font-bold flex justify-center gap-2"><Plus className="w-5 h-5" /> Ekle</button></div><div className="space-y-3">{oilProducts.length === 0 && <Empty text="Henüz yağ ürünü eklenmedi." />}{oilProducts.map((p) => (
+  <div
+    key={p.id}
+    className="rounded-2xl bg-slate-950 border border-slate-800 p-4"
+  >
+    {editingOilProductId === p.id ? (
+      <div className="grid md:grid-cols-[1fr_180px_90px_90px] gap-3 items-end">
+        <Input
+          label="Ürün Adı"
+          value={oilEditForm.name}
+          onChange={(v) => setOilEditForm({ ...oilEditForm, name: v })}
+        />
+
+        <Input
+          label="Fiyat"
+          value={oilEditForm.price}
+          onChange={(v) => setOilEditForm({ ...oilEditForm, price: v })}
+        />
+
+        <button
+          onClick={() => saveEditOilProduct(p.id)}
+          className="rounded-xl bg-emerald-700 hover:bg-emerald-600 h-12 font-bold"
+        >
+          Kaydet
+        </button>
+
+        <button
+          onClick={cancelEditOilProduct}
+          className="rounded-xl bg-slate-800 hover:bg-slate-700 h-12 font-bold"
+        >
+          İptal
+        </button>
+      </div>
+    ) : (
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div>
+          <div className="font-black text-lg">{p.name}</div>
+          <div className="text-slate-400 text-sm">{money(p.price)}</div>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            onClick={() => startEditOilProduct(p)}
+            className="rounded-xl bg-blue-700 hover:bg-blue-600 px-4 py-2 font-bold text-sm"
+          >
+            Düzenle
+          </button>
+
+          <button
+            onClick={() => deleteOilProduct(p.id)}
+            className="rounded-xl bg-red-950/60 text-red-300 px-4 py-2 hover:bg-red-900 font-bold text-sm"
+          >
+            Sil
+          </button>
+        </div>
+      </div>
+    )}
+  </div>
+))}
+</div></section>}
 
       {active === "cari" && <CariPanel customerForm={customerForm} setCustomerForm={setCustomerForm} addCustomer={addCustomer} customerSearch={customerSearch} setCustomerSearch={setCustomerSearch} filteredCustomers={filteredCustomers} customerBalances={customerBalances} deleteCustomer={deleteCustomer} transactions={transactions} addManualCustomerMove={addManualCustomerMove} deleteTransaction={deleteTransaction} />}
       {active === "personel" && <PersonelPanel personnel={personnel} newPersonnel={newPersonnel} setNewPersonnel={setNewPersonnel} addPersonnel={addPersonnel} togglePersonnel={togglePersonnel} deletePersonnel={deletePersonnel} />}
