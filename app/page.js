@@ -614,16 +614,33 @@ async function handleAutomationFile(event) {
   setShiftHistory((h) => h.filter((x) => x.id !== id));
 }
   if (!loggedIn) {
-    return <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4"><motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl p-8"><div className="flex items-center gap-3 mb-8"><div className="w-12 h-12 rounded-2xl bg-blue-700 flex items-center justify-center shadow-lg shadow-blue-950/60"><Fuel className="w-7 h-7" /></div><div><h1 className="text-2xl font-bold tracking-tight">ÇETİN PETROL</h1><p className="text-slate-400 text-sm">Yönetim Paneli</p></div></div><form onSubmit={handleLogin} className="space-y-4"><Input label="Kullanıcı adı" value={login.username} onChange={(v) => setLogin({ ...login, username: v })} /><Input label="Şifre" type="password" value={login.password} onChange={(v) => setLogin({ ...login, password: v })} />{loginError && <p className="text-red-400 text-sm">{loginError}</p>}<button className="w-full rounded-2xl bg-blue-700 hover:bg-blue-600 transition px-4 py-3 font-semibold flex items-center justify-center gap-2"><Lock className="w-4 h-4" /> Giriş Yap</button></form></motion.div></div>;
+    return <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4"><motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl p-8"><div className="mb-8 rounded-3xl bg-white p-4 shadow-2xl shadow-black/20">
+  <img
+    src="/cetin-petrol-logo.png"
+    alt="Çetin Petrol"
+    className="h-16 w-auto object-contain mx-auto"
+  />
+
+  <div className="mt-1 text-center">
+  <p className="text-slate-500 text-sm font-medium">
+  </p>
+</div>
+</div><form onSubmit={handleLogin} className="space-y-4"><Input label="Kullanıcı adı" value={login.username} onChange={(v) => setLogin({ ...login, username: v })} /><Input label="Şifre" type="password" value={login.password} onChange={(v) => setLogin({ ...login, password: v })} />{loginError && <p className="text-red-400 text-sm">{loginError}</p>}<button className="w-full rounded-2xl bg-blue-700 hover:bg-blue-600 transition px-4 py-3 font-semibold flex items-center justify-center gap-2"><Lock className="w-4 h-4" /> Giriş Yap</button></form></motion.div></div>;
   }
 
   const menu = [["vardiya", Wallet, "Vardiya"], ["cari", Users, "Cari Hesaplar"], ["yag", Package, "Yağ Cari"], ["personel", UserPlus, "Personeller"], ["rapor", FileText, "Raporlar"]];
   const activeAccount = shift.staffAccounts[activeStaffIndex] || shift.staffAccounts[0];
   const activeSummary = activeAccount ? staffSummaries.find((s) => s.id === activeAccount.id) : null;
 
-  return <div className="min-h-screen bg-slate-950 text-white"><div className="flex">
-    <aside className="hidden md:flex w-72 min-h-screen bg-slate-900 border-r border-slate-800 p-5 flex-col"><div className="flex items-center gap-3 mb-8"><div className="w-11 h-11 rounded-2xl bg-blue-700 flex items-center justify-center"><Fuel /></div><div><div className="font-black text-xl leading-5">ÇETİN PETROL</div><div className="text-slate-400 text-sm">Yönetim Paneli</div></div></div><nav className="space-y-2 flex-1">{menu.map(([key, Icon, label]) => <button key={key} onClick={() => setActive(key)} className={`w-full rounded-2xl px-4 py-3 flex items-center gap-3 text-left transition ${active === key ? "bg-blue-700 text-white" : "text-slate-300 hover:bg-slate-800"}`}><Icon className="w-5 h-5" /> {label}</button>)}</nav><button onClick={() => setLoggedIn(false)} className="rounded-2xl px-4 py-3 flex items-center gap-3 text-slate-300 hover:bg-slate-800"><LogOut className="w-5 h-5" /> Çıkış</button></aside>
-    <main className="flex-1 p-3 md:p-8 pb-24"><div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-950 border-t border-slate-800 p-2 flex gap-2 overflow-x-auto">{menu.map(([key, Icon, label]) => <button key={key} onClick={() => setActive(key)} className={`rounded-2xl px-4 py-3 flex items-center gap-2 whitespace-nowrap ${active === key ? "bg-blue-700" : "bg-slate-900"}`}><Icon className="w-4 h-4" /> {label}</button>)}</div><header className="mb-6"><h2 className="text-3xl font-black">{active === "vardiya" ? "Sekmeli Vardiya Hesabı" : active === "cari" ? "Cari Hesaplar" : active === "yag" ? "Yağ Cari / Ürün Fiyatları" : active === "personel" ? "Personel Yönetimi" : "Raporlar"}</h2><p className="text-slate-400 mt-1">Yağ ürünlerini fiyatıyla kaydet, vardiyada personel satışı olarak seç.</p></header>
+  return <div className="min-h-screen bg-[#f5f1e8] text-white"><div className="flex">
+    <aside className="hidden md:flex w-72 min-h-screen bg-slate-900 border-r border-slate-800 p-5 flex-col"><div className="mb-8 rounded-3xl bg-white p-3 shadow-xl shadow-black/20">
+  <img
+    src="/cetin-petrol-logo.png"
+    alt="Çetin Petrol"
+    className="h-14 w-auto object-contain mx-auto"
+  />
+</div><nav className="space-y-2 flex-1">{menu.map(([key, Icon, label]) => <button key={key} onClick={() => setActive(key)} className={`w-full rounded-2xl px-4 py-3 flex items-center gap-3 text-left transition ${active === key ? "bg-blue-700 text-white" : "text-slate-300 hover:bg-slate-800"}`}><Icon className="w-5 h-5" /> {label}</button>)}</nav><button onClick={() => setLoggedIn(false)} className="rounded-2xl px-4 py-3 flex items-center gap-3 text-slate-300 hover:bg-slate-800"><LogOut className="w-5 h-5" /> Çıkış</button></aside>
+    <main className="flex-1 p-3 md:p-8 pb-24"><div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-950 border-t border-slate-800 p-2 flex gap-2 overflow-x-auto">{menu.map(([key, Icon, label]) => <button key={key} onClick={() => setActive(key)} className={`rounded-2xl px-4 py-3 flex items-center gap-2 whitespace-nowrap ${active === key ? "bg-blue-700" : "bg-slate-900"}`}><Icon className="w-4 h-4" /> {label}</button>)}</div><header className="mb-6"><h2 className="text-3xl font-black text-slate-800">{active === "vardiya" ? "Sekmeli Vardiya Hesabı" : active === "cari" ? "Cari Hesaplar" : active === "yag" ? "Yağ Cari / Ürün Fiyatları" : active === "personel" ? "Personel Yönetimi" : "Raporlar"}</h2><p className="text-slate-400 mt-1">Yağ ürünlerini fiyatıyla kaydet, vardiyada personel satışı olarak seç.</p></header>
 
       {active === "vardiya" && <div className="space-y-5"><section className="rounded-3xl bg-slate-900 border border-slate-800 p-5"><div className="grid md:grid-cols-5 gap-4 items-end"><Input label="Vardiya Tarihi" type="date" value={shift.date} onChange={(v) => setShift({ ...shift, date: v })} /><div className="md:col-span-4 rounded-2xl bg-slate-950 border border-slate-800 p-4 grid md:grid-cols-5 gap-3"><SummaryBox label="Toplam Gelir" value={money(totals.incomeAmount)} /><SummaryBox label="Yağ Satışı" value={money(totals.oilIncome)} /><SummaryBox label="Toplam Kart" value={money(totals.cardTotal)} /><SummaryBox label="Beklenen Nakit" value={money(totals.expectedCash)} /><SummaryBox label="Toplam Fark" value={money(totals.cashDifference)} negative={totals.cashDifference < 0} /></div></div></section>
       <section className="rounded-3xl bg-slate-900 border border-slate-800 p-5">
