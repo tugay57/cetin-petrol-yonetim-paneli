@@ -81,6 +81,7 @@ export default function CetinPetrolPanel() {
   const [loginError, setLoginError] = useState("");
   const [active, setActive] = useState("vardiya");
   const [activeStaffIndex, setActiveStaffIndex] = useState(0);
+  const [automationResult, setAutomationResult] = useState(null);
 
  const [personnel, setPersonnel] = useState([]);
   const [newPersonnel, setNewPersonnel] = useState("");
@@ -406,6 +407,154 @@ async function addCustomer() {
 
   return false;
 }
+
+function normalizeName(name) {
+  return String(name || "")
+    .trim()
+    .toLocaleUpperCase("tr-TR");
+}
+
+function parseAutomationText(text) {
+  const lines = text.split(/\r?\n/).filter(Boolean);
+  const records = [];
+
+  for (const line of lines) {
+    const parts = line.trim().split(/\s+/);
+    if (parts.length < 11) continue;
+
+    const fisNo = parts[0];
+    const date = parts[1]?.replaceAll(".", "-");
+    const time = parts[2];
+    const pump = parts[3];
+    const product = parts[6];
+    const liter = numberValue(parts[7]);
+    const unitPrice = numberValue(parts[8]);
+    const amount = numberValue(parts[9]);
+    const plate = parts[10];
+    const personnelName = parts.slice(11).join(" ").trim() || "Taşıtmatik";
+
+    records.push({
+      fisNo,
+      date,
+      time,
+      pump,
+      product,
+      liter,
+      unitPrice,
+      amount,
+      plate,
+      personnelName,
+    });
+  }
+
+  return records;
+}
+
+async function handleAutomationFile(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  const buffer = await file.arrayBuffer();
+  const decoder = new TextDecoder("windows-1254");
+  const text = decoder.decode(buffer);
+
+  const records = parseAutomationText(text);
+  if (!records.length) {
+    alert("Dosya okunamadı veya uygun kayıt bulunamadı.");
+    return;
+  }
+
+  const staffMap = {};
+  const productMap = {};
+
+  records.forEach((r) => {
+    const personKey = normalizeName(r.personnelName);
+
+    if (!staffMap[personKey]) {
+      staffMap[personKey] = {
+        personnelName: r.personnelName,
+        totalAmount: 0,
+        totalLiter: 0,
+        records: [],
+      };
+    }
+
+    staffMap[personKey].totalAmount += r.amount;
+    staffMap[personKey].totalLiter += r.liter;
+    staffMap[personKey].records.push(r);
+
+    if (!productMap[r.product]) {
+      productMap[r.product] = {
+        product: r.product,
+        liter: 0,
+        amount: 0,
+      };
+    }
+
+    productMap[r.product].liter += r.liter;
+    productMap[r.product].amount += r.amount;
+  });
+
+  let updatedPersonnel = [...personnel];
+
+  for (const key of Object.keys(staffMap)) {
+    const name = staffMap[key].personnelName;
+    const exists = updatedPersonnel.find((p) => normalizeName(p.name) === normalizeName(name));
+
+    if (!exists && name !== "Taşıtmatik") {
+      const saved = await dbAddPersonnel({
+        name,
+        active: true,
+      });
+
+      if (saved) {
+        updatedPersonnel = [saved, ...updatedPersonnel];
+      }
+    }
+  }
+
+  setPersonnel(updatedPersonnel);
+
+  const accounts = Object.values(staffMap).map((staff) => {
+    const matchedPerson = updatedPersonnel.find(
+      (p) => normalizeName(p.name) === normalizeName(staff.personnelName)
+    );
+
+    const account = emptyStaffAccount(matchedPerson?.id || "");
+
+    return {
+      ...account,
+      incomeItems: [
+        {
+          id: Date.now() + Math.random(),
+          description: `Otomasyon akaryakıt satışı - ${file.name}`,
+          amount: staff.totalAmount.toFixed(2),
+        },
+      ],
+    };
+  });
+
+  const productTotals = Object.values(productMap);
+
+  setShift((s) => ({
+    ...s,
+    date: records[0]?.date || s.date,
+    staffAccounts: accounts,
+    automationProducts: productTotals,
+  }));
+
+  setActiveStaffIndex(0);
+
+  setAutomationResult({
+    fileName: file.name,
+    recordsCount: records.length,
+    staffTotals: Object.values(staffMap),
+    productTotals,
+  });
+
+  event.target.value = "";
+}
+
   async function saveShift() {
   for (const s of staffSummaries) {
     if (s.currentSaleCustomerId && s.currentSale > 0) {
@@ -418,9 +567,10 @@ async function addCustomer() {
   }
 
   const reportPayload = {
-    date: shift.date,
-    totals: { ...totals },
-    staff: staffSummaries.map((s) => ({
+  date: shift.date,
+  totals: { ...totals },
+  automationProducts: shift.automationProducts || [],
+  staff: staffSummaries.map((s) => ({
       ...s,
       banks: { ...s.banks },
     })),
@@ -456,6 +606,47 @@ async function addCustomer() {
     <main className="flex-1 p-3 md:p-8 pb-24"><div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-950 border-t border-slate-800 p-2 flex gap-2 overflow-x-auto">{menu.map(([key, Icon, label]) => <button key={key} onClick={() => setActive(key)} className={`rounded-2xl px-4 py-3 flex items-center gap-2 whitespace-nowrap ${active === key ? "bg-blue-700" : "bg-slate-900"}`}><Icon className="w-4 h-4" /> {label}</button>)}</div><header className="mb-6"><h2 className="text-3xl font-black">{active === "vardiya" ? "Sekmeli Vardiya Hesabı" : active === "cari" ? "Cari Hesaplar" : active === "yag" ? "Yağ Cari / Ürün Fiyatları" : active === "personel" ? "Personel Yönetimi" : "Raporlar"}</h2><p className="text-slate-400 mt-1">Yağ ürünlerini fiyatıyla kaydet, vardiyada personel satışı olarak seç.</p></header>
 
       {active === "vardiya" && <div className="space-y-5"><section className="rounded-3xl bg-slate-900 border border-slate-800 p-5"><div className="grid md:grid-cols-5 gap-4 items-end"><Input label="Vardiya Tarihi" type="date" value={shift.date} onChange={(v) => setShift({ ...shift, date: v })} /><div className="md:col-span-4 rounded-2xl bg-slate-950 border border-slate-800 p-4 grid md:grid-cols-5 gap-3"><SummaryBox label="Toplam Gelir" value={money(totals.incomeAmount)} /><SummaryBox label="Yağ Satışı" value={money(totals.oilIncome)} /><SummaryBox label="Toplam Kart" value={money(totals.cardTotal)} /><SummaryBox label="Beklenen Nakit" value={money(totals.expectedCash)} /><SummaryBox label="Toplam Fark" value={money(totals.cashDifference)} negative={totals.cashDifference < 0} /></div></div></section>
+      <section className="rounded-3xl bg-slate-900 border border-slate-800 p-5">
+  <h3 className="font-black text-xl mb-3">Otomasyon Dosyası Yükle</h3>
+  <p className="text-slate-400 text-sm mb-4">
+    Otomasyondan alınan .D1A dosyasını yükle; sistem pompacıları ve satışları otomatik gelir olarak aktarır.
+  </p>
+
+  <input
+    type="file"
+    accept=".D1A,.d1a,.txt"
+    onChange={handleAutomationFile}
+    className="block w-full text-sm text-slate-300 file:mr-4 file:rounded-2xl file:border-0 file:bg-blue-700 file:px-5 file:py-3 file:font-bold file:text-white hover:file:bg-blue-600"
+  />
+
+  {automationResult && (
+    <div className="mt-5 grid md:grid-cols-2 gap-4">
+      <div className="rounded-2xl bg-slate-950 border border-slate-800 p-4">
+        <div className="font-bold mb-2">Pompacı Bazlı Satış</div>
+        <div className="space-y-2">
+          {automationResult.staffTotals.map((s) => (
+            <div key={s.personnelName} className="flex justify-between text-sm">
+              <span>{s.personnelName}</span>
+              <span className="font-bold">{money(s.totalAmount)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-2xl bg-slate-950 border border-slate-800 p-4">
+        <div className="font-bold mb-2">Ürün Bazlı Toplam</div>
+        <div className="space-y-2">
+          {automationResult.productTotals.map((p) => (
+            <div key={p.product} className="flex justify-between text-sm">
+              <span>{p.product}</span>
+              <span className="font-bold">{p.liter.toFixed(2)} Lt / {money(p.amount)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )}
+</section>
       <section className="rounded-3xl bg-slate-900 border border-slate-800 p-5"><div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4"><h3 className="font-black text-xl">Personel Hesapları</h3><button onClick={addStaffAccount} className="rounded-2xl bg-blue-700 hover:bg-blue-600 px-4 py-3 font-bold flex items-center gap-2"><Plus className="w-5 h-5" /> Personel Hesabı Ekle</button></div><div className="flex gap-2 overflow-x-auto pb-3 mb-4">{staffSummaries.map((s, index) => <button key={s.id} onClick={() => setActiveStaffIndex(index)} className={`min-w-[190px] rounded-2xl p-4 text-left border transition ${activeStaffIndex === index ? "bg-blue-700 border-blue-500" : "bg-slate-950 border-slate-800 hover:border-slate-600"}`}><div className="text-xs opacity-80">Personel {index + 1}</div><div className="font-black truncate">{s.personnelName}</div><div className={`mt-2 text-sm font-bold ${s.cashDifference < 0 ? "text-red-200" : "text-emerald-200"}`}>{money(s.cashDifference)}</div></button>)}</div>
       {activeAccount && <div className="rounded-3xl bg-slate-950 border border-slate-800 p-5"><div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-5"><div><div className="font-black text-2xl">{activeSummary?.personnelName}</div><div className="text-sm text-slate-400">Seçili personelin gelir, yağ, kart, cari ve gider hesabı.</div></div><button onClick={() => removeStaffAccount(activeAccount.id)} className="rounded-xl bg-red-950/60 text-red-300 px-4 py-2 hover:bg-red-900 flex items-center gap-2"><Trash2 className="w-4 h-4" /> Bu Hesabı Sil</button></div><div className="grid md:grid-cols-2 gap-4 mb-6"><Select label="Personel" value={activeAccount.personnelId} onChange={(v) => updateStaffAccount(activeAccount.id, "personnelId", v)} options={[{ value: "", label: "Personel seç" }, ...personnel.filter(p => p.active).map(p => ({ value: p.id, label: p.name }))]} /><Input label="Teslim Ettiği Nakit" value={activeAccount.cashDelivered} onChange={(v) => updateStaffAccount(activeAccount.id, "cashDelivered", v)} placeholder="0" /></div><LineSection title="Gelirler" subtitle="Akaryakıt, AdBlue veya manuel gelirleri ayrı satır gir." account={activeAccount} type="income" items={activeAccount.incomeItems} addLine={addLine} updateLine={updateLine} deleteLine={deleteLine} total={activeSummary?.manualIncome} />
       <OilSaleSection account={activeAccount} items={activeAccount.oilSales} oilProducts={oilProducts} addOilSale={addOilSale} updateOilSale={updateOilSale} deleteOilSale={deleteOilSale} getOilProduct={getOilProduct} getOilLineTotal={getOilLineTotal} total={activeSummary?.oilIncome} />
