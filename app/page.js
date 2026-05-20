@@ -319,9 +319,29 @@ async function deletePersonnel(id) {
   }
 }
 
-  function updateOilProduct(id, field, value) {
-    setOilProducts((p) => p.map((x) => x.id === id ? { ...x, [field]: value } : x));
+ async function updateOilProduct(id, field, value) {
+  const cleanValue =
+    field === "price" ? numberValue(value) : value;
+
+  setOilProducts((p) =>
+    p.map((x) =>
+      x.id === id
+        ? { ...x, [field]: cleanValue }
+        : x
+    )
+  );
+
+  const { error } = await supabase
+    .from("oil_products")
+    .update({
+      [field]: cleanValue,
+    })
+    .eq("id", id);
+
+  if (error) {
+    console.error(error);
   }
+}
 
   async function deleteOilProduct(id) {
   await dbDeleteOilProduct(id);
